@@ -3,7 +3,7 @@
 2. 要点
     理解线程操作函数，包括pthread_create/pthread_exit/pthread_cancel，使用man查看该系列函数帮助
 3. 一个创建线程的简单事例
-    ```
+    ```c
     #include<stdio.h>
     #include<stdlib.h>
     #include<string.h>
@@ -39,7 +39,7 @@
     }
     ```
     一个取消线程的简单事例
-    ```
+    ```c
     #include<stdio.h>
     #include<string.h>
     #include<pthread.h>
@@ -82,7 +82,7 @@
 4. 进程同步使用信号量与互斥量
     信号量
     掌握理解操作信号量的函数调用sem_init/sem_post/sem_wait/sem_destory，一个简单事例
-    ```
+    ```c
     #include<stdio.h>
     #include<stdlib.h>
     #include<unistd.h>
