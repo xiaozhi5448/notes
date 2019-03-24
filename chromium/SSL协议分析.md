@@ -61,36 +61,9 @@ curl -l --tlsv1.2 -v https://www.baidu.com
 
 图中清晰的表示了tls握手过程中ssl信息交换的过程. 命令行工具ssldump可以非常详细的显示tls数据信息
 
-## 4. openssl的engine机制
 
-### 4.1 openssl目录结构
 
-源码目录结构如下
 
-![1552290105889](assets/1552290105889.png)
-
-比较重要的有apps、crypto、engines、ssl
-
--   ssl是握手协议的实现，证书校验等
--   apps目录是openssl命令行工具，用于在命令行使用openssl功能
--   crypto包括了openssl中一些基本的结构
-    -   bio提供了网络IO操作的通用接口，可以理解为openssl自己实现的网络通信框架
-    -   evp提供了调用各种加密算法的接口方便算法的增加与删除，提供了底层密码算法的抽象，应用在使用加密解密操作时，主要使用evp层提供的接口
-    -   各种对称加密与非对称加密算法的实现
-    -   一些通用数据结构的实现
-    -   engine目录主要是openssl预留的用于加载第三方密码库的引擎，为evp层的算法调用提供统一的接口
-
-### 4.2 openssl模块
-
-模块之间的调用顺序如下
-
-![1552291531386](assets/1552291531386.png)
-
-在engines component中可以加载自己的加密算法，供高层调用，openssl分层结构如下
-
-![img](assets/wpsH2zylj.png)
-
-openssl定义了上层加解密接口EVP层，屏蔽了大量底层细节，通过openssl的engine机制，定义新的外部扩展引擎，在其中实现需要的算法，然后通过动态引擎引入，通过一些编译手段可以达到支持自定义算法的目的
 
 
 
