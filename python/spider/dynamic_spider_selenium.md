@@ -1,12 +1,19 @@
-1. ajax技术是用于异步更新网页内容的一种技术，用户更新了信息，当网页只需要部分更新时，仅传递需要更新的那部分信息，提高网络效率，有时候网页的内容由ajax请求后的内容生成，使用静态爬虫难以获取到需要的数据，比如点击一个按钮，生成的网页内容，难以在第一次访问网页时就获取到。碰到这种情况，可以使用抓包工具或代理软件观察其中的ajax请求，观察对比请求中的参数，手动构造该请求，获取相关数据，随着网站维护人员安全意识的提高，构造请求变得越来越困难，协议分析能力需要我们长期的练习。firefox与chrome都有功能强大的控制台，在控制台中查看网络请求参数，js响应内容，调试网页。我们也可以使用burpsuite和zap代理工具观察http请求与响应，使用wireshark抓包工具获取数据包获取信息
-2. 另一种动态网页获取方法是直接在内存中启动浏览器，使用python操作接口，操作浏览器中的动作，可以获取其中的数据，获取登陆后的cookie，取出cookie为下次所用，文章重点描述这种简单但是资源占用较高的方式
-  python中的自动化测试工具selenium，和浏览器联动实现需求。
+# selenium自动化测试
+
+## 技术背景
+
+ajax技术是用于异步更新网页内容的一种技术，用户更新了信息，当网页只需要部分更新时，仅传递需要更新的那部分信息，提高网络效率，有时候网页的内容由ajax请求后的内容生成，使用静态爬虫难以获取到需要的数据，比如点击一个按钮，生成的网页内容，难以在第一次访问网页时就获取到。碰到这种情况，可以使用抓包工具或代理软件观察其中的ajax请求，观察对比请求中的参数，手动构造该请求，获取相关数据，随着网站维护人员安全意识的提高，构造请求变得越来越困难，协议分析能力需要我们长期的练习。firefox与chrome都有功能强大的控制台，在控制台中查看网络请求参数，js响应内容，调试网页。我们也可以使用burpsuite和zap代理工具观察http请求与响应，使用wireshark抓包工具获取数据包获取信息。另一种动态网页获取方法是直接在内存中启动浏览器，使用python操作接口，操作浏览器中的动作，可以获取其中的数据，获取登陆后的cookie，取出cookie为下次所用，文章重点描述这种简单但是资源占用较高的方式
+
+## selenium
+
+python中的自动化测试工具selenium，和浏览器联动实现需求。
   `pip install selenium --user`
   随后下载selenium对这两者的驱动，将驱动所在文件夹加入系统环境变量path中，下载链接位于https://www.seleniumhq.org/download/
   ![](https://upload-images.jianshu.io/upload_images/10339396-3d65336dc32155b0.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
   下载这两个驱动文件，放入同一文件夹，随后将该文件夹加入系统环境变量path中，在我的电脑上是修改.bashrc文件 
   `PATH="${PATH:+:${PATH}}/home/xiaozhi/tools/geckodriver/:"; export PATH`
-  selenium基本操作如下,目的是登陆百度百科，并搜索词条python
+ selenium基本操作如下,目的是登陆百度百科，并搜索词条python
+
    ```
    In [1]: from selenium import webdriver
    
@@ -121,7 +128,95 @@
    chrome.close()
    session_zhihu.close()
    ```
-   部分代码来自《python爬虫开发与项目实战》
+一个使用selenium爬取imdb影评的例子
+
+```python
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+import time
+from datetime import datetime
+import os
+url = 'https://www.imdb.com/title/tt2015381/reviews?ref_=tt_urv'
+
+
+def get_comment(num:int=100):
+    begin = datetime.now()
+    option = webdriver.ChromeOptions()
+    # 设置浏览器没有图形界面启动
+    option.headless = True
+    # 这里加载了chromedriver，没有指定环境变量，之间在参数中指定了chromedriver的位置
+    chrome = webdriver.Chrome('./chromedriver', options=option)
+    try:
+        # 设置页面加载最长时长，有时候有些资源请求时间太长，get命令会卡住
+        chrome.set_page_load_timeout(5)
+        chrome.set_script_timeout(5)
+        chrome.get(url)
+    except TimeoutException as e:
+        pass
+    try:
+        # 显式等待某个元可点击
+        WebDriverWait(chrome, 10).until(
+            EC.element_to_be_clickable((By.ID, 'load-more-trigger'))
+        )
+    except TimeoutException as e:
+        chrome.close()
+        return [],[]
+    time.sleep(1)
+    for i in range(5):
+        try:
+            # 显式等待某个元素可点击
+            load_more_btn = WebDriverWait(chrome, 3).until(
+                EC.element_to_be_clickable((By.ID, 'load-more-trigger'))
+            )
+            # 点击该元素
+            load_more_btn.click()
+            # 直到该元素不可见
+            WebDriverWait(chrome, 3).until(
+                EC.invisibility_of_element((By.ID, 'load-more-trigger'))
+            )
+        except TimeoutException:
+            continue
+    WebDriverWait(chrome, 3).until(
+        # 再等待该元素可点击，表示最后一次点击数据请求完成
+        EC.element_to_be_clickable((By.ID, 'load-more-trigger'))
+    )
+    comment_contents = []
+    comment_ratings = []
+    # 接下来使用selenium的语法取得页面元素
+    lister_list = chrome.find_element_by_class_name('lister-list')
+    comments = lister_list.find_elements_by_class_name('lister-item')
+    for comment in comments:
+        try:
+            rating_str = comment.find_element_by_class_name('ipl-ratings-bar').text
+            rating = int(rating_str.split('/')[0])
+            comment_content = comment.find_element_by_class_name('content').text
+            if comment_content and rating:
+                comment_contents.append(comment_content)
+                comment_ratings.append(rating)
+                if len(comment_ratings) > 100:
+                    break
+                # print(comment_content + '\n' + str(rating))
+        except NoSuchElementException as e:
+            continue
+    # chrome.close()
+    end = datetime.now()
+    print('get {} comments and rates in {} seconds!'.format(len(comment_contents), (end-begin).seconds))
+
+    return comment_contents, comment_ratings
+
+if __name__ == '__main__':
+    comments, rates = get_comment(50)
+    with open('comment.csv', 'w') as fp:
+        for comment,rate in zip(comments, rates):
+            fp.write(','.join([''.join(comment.replace(',', '，').split('\n')), str(rate)]) + '\n')
+
+
+```
+
+
 
 
 

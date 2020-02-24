@@ -17,6 +17,7 @@
           return 0;
       }
     ```
+
 2. 使用getopt处理命令行参数
     ![](https://upload-images.jianshu.io/upload_images/10339396-03f3271b70fc499b.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
@@ -47,7 +48,10 @@
         return 0;
     }
     ```
+    当getopt返回-1后，全局变量optind中存放了第一个位置参数在argv中的下标
+
     使用getopt_long处理长参数类型
+
     ```c
     #include<stdio.h>
     #include<unistd.h>
@@ -84,6 +88,7 @@
         return 0;
     }
     ```
+
 3. 使用getenv与putenv获取并设置环境变量
     ```c
     #include<stdio.h>
@@ -140,6 +145,7 @@
         return 0;
     }
     ```
+
 4. 日期与时间
     - time函数获取时间，返回time_t类型的长整型数，表示某一特定时间到现在的秒数
       ![](https://upload-images.jianshu.io/upload_images/10339396-3e1b74e026725385.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
@@ -207,6 +213,7 @@
           return 0;
       }
       ```
+
 5. 临时文件
     - 使用tmpnam生成临时文件名称
       ![](https://upload-images.jianshu.io/upload_images/10339396-206d962d7772c292.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)

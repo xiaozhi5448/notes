@@ -1,0 +1,109 @@
+# web开发与运维技术
+
+## web前端
+
+### html与css基础
+
+包括各种html标签的使用，标签相关的样式。以及各种css布局，样式。
+
+-------
+
+### css2.1&css3
+
+重点了解css新增动画与过渡效果，2d与3d变换。
+
+### less
+
+
+
+--------
+
+### bootstrapUI框架
+
+#### 准备工作
+
+bootstrap中文网<https://www.bootcss.com/>，可以查阅bootstrap官方文档中各个组件的用法。
+
+css样式重置
+
+```
+https://github.com/necolas/normalize.css
+https://cssreset.com/
+```
+
+#### 容器
+
+##### 流体容器
+
+##### 固定容器
+
+##### 栅格系统
+
+
+
+--------
+
+### html5核心要点
+
+---------
+
+### JavaScript基础与高级
+
+-----------
+
+### JQuery框架使用
+
+### nodejs学习与使用
+
+### Mongodb数据库了解与应用
+
+### 必备js框架， zepto与angularJS
+
+### 规范集成ES6与JS模块化
+
+### 自动化构建工具
+
+#### Grunt
+
+#### Gulp
+
+#### webpack
+
+### 前端框架
+
+#### react
+
+#### vue
+
+#### mpVue
+
+### 前端项目实践
+
+-------
+
+## web后端技术Python&Java
+
+### Java 后端
+
+### Pythonweb开发技术Flask&Django
+
+### 大数据与高并发处理
+
+
+
+--------
+
+## LInux操作系统完全指南
+
+包括python语言在linux系统管理中的应用
+
+## web渗透攻击防护指南
+
+
+
+## Openssl应用开发指南
+
+## C++图形界面应用开发指南（QT5）
+
+## 深度学习与智能AI技术（Python）
+

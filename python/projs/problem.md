@@ -13,3 +13,16 @@ sudo apt-get install libmysqlclient-dev
 sudo apt-get install libmariadbclient-dev
 ```
 
+### python使用matplotlib库画图
+
+tkinter配置问题
+
+![1556182437036](/home/xiaozhi/Documents/notes/python/projs/assets/1556182437036.png)
+
+可能在安装python时系统内没有tcl、tk运行环境，到时tkinter配置失败，需要安装python3-tk、python-tk、tk之后重新安装python（编译安装）
+
+```shell
+sudo apt-get install python3-tk python-tk tk
+pyenv install 3.7.0
+```
+
