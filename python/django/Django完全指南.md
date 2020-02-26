@@ -753,7 +753,7 @@ def old_add2_redirect(request, a, b):
 
 
 
-
+django编写定制性不强的api可以使用drf，并且使用jwt进行接口token认证，自定义restful接口的方式比较繁琐，但定制性非常强
 
 
 

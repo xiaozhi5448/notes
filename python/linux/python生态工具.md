@@ -54,7 +54,11 @@ pip是一款优秀的python包管理工具，提供了丰富的功能
 
 ## 使用pyenv管理工作环境
 
+使用pyenvinstaller 安装更为简单并且带有更多插件
+
 我们可以从github下载安装pyenv工具
+
+
 
 下载至用户主目录下的.pyenv文件夹，随后在bash_profile文件中添加环境变量
 ![](https://upload-images.jianshu.io/upload_images/10339396-e5aa772b7db2ba05.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
@@ -73,10 +77,12 @@ pip是一款优秀的python包管理工具，提供了丰富的功能
 安装python的依赖
 
 ```shell
-sudo apt-get install gcc make zlib1g-dev libbz2-dev libsqlite3-dev libxml2-dev libreadline-dev libssl-dev libffi-dev
+sudo apt-get install gcc make build-essential libssl-dev zlib1g-dev \
+libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
+libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev
 ```
 
-直接使用pyenvinstall下载python源码包时间过长，先下载python包至.pyenv/cache/随后执行安装过程
+直接使用pyenv install下载python源码包时间过长，先下载python包至.pyenv/cache/随后执行安装过程
 
 ## 使用virtualenv管理不同的项目
 
