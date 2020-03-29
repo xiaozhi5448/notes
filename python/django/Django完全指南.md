@@ -54,7 +54,20 @@ LANGUAGE_CODE = 'zh-hans'
 TIME_ZONE = 'Asia/Shanghai'
 ```
 
+配置mysql数据库
 
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'shop',  # 数据库名字
+        'USER': 'root',  # 账号
+        'PASSWORD': 'wodemima',  # 密码
+        'HOST': '127.0.0.1',  # IP
+        'PORT': '3306',  # 端口
+    }
+}
+```
 
 使用下面的命令执行migrate操作，创建对应的数据库与数据表
 
@@ -751,13 +764,506 @@ def old_add2_redirect(request, a, b):
 
 ## django中编写restful api
 
+django编写定制性不强的api可以使用drf，并且使用jwt进行接口token认证.现在各种语言框架对restful接口的处理模式，大致相同。需要程序员定义后端模型model，数据序列化类serializer，以及处理请求的代码模板。
+
+### 普通应用中的restful api
+
+```python
+def register(request):
+    if request.method == 'POST':
+    	...
+    	pass
+    elif request.method=='GET':
+    	...
+    	pass
+    else:
+    	pass
+    HttpResponse(json.dumps(res_dict, ensure_ascii=False), 					                  content_type="application/json,charset=utf-8",
+                 status=status_code)
+```
+
+定义函数，根据request判断请求类型，操作要返回的数据结构，最后通过http返回json数据。
+
+### restframework & jwt
+
+django restframework用于编写可浏览的restful接口，通过众多的模板简化用户代码复杂度。如果要编写的接口数量很少，使用原来的view方式也不是不可以，只是需要自己处理数据的打包处理，以及认证过程。
+
+#### 示例
+
+##### 环境配置
+
+```
+pip install djangorestframework djangorestframework-jwt
+```
+
+在app中注册
+
+![1585400809223](/home/xiaozhi/Documents/notes/python/django/assets/1585400809223.png)
+
+在setting中配置restframework的默认值，主要是认证与权限
+
+```python
+REST_FRAMEWORK = {
+    # Use Django's standard `django.contrib.auth` permissions,
+    # or allow read-only access for unauthenticated users.
+    # 'DEFAULT_PERMISSION_CLASSES': (
+    #     'rest_framework.permissions.IsAuthenticated',
+    # ),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
+    # 'DEFAULT_AUTHENTICATION_CLASSES': (
+    #     'django.contrib.auth.backends.ModelBackend',
+    #     'rest_framework_jwt.authentication.JSONWebTokenAuthentication'
+    #     'rest_framework.authentication.TokenAuthentication',
+    #     'rest_framework.authentication.SessionAuthentication',
+    #     'rest_framework.authentication.BasicAuthentication',
+    #
+    # ),
+}
+```
 
 
-django编写定制性不强的api可以使用drf，并且使用jwt进行接口token认证，自定义restful接口的方式比较繁琐，但定制性非常强
+
+##### models
+
+新建django工程与应用，并且进行初始化配置，建立我们的model数据模型
+
+```python
+from django.db import models
+import datetime
+
+# Create your models here.
+
+class Category(models.Model):
+
+    category_name = models.CharField(verbose_name='category_name', max_length=50, unique=True, blank=False)
+    description = models.TextField(verbose_name='description_name', max_length=200, unique=False, blank=True)
+
+    def __str__(self):
+        return "{}: {}......".format(self.category_name, self.description[:10])
 
 
+class Goods(models.Model):
 
-#### 在普通views函数中返回json对象
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    name = models.CharField(max_length=50, blank=False, unique=True)
+    amount = models.FloatField()
+    time = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "{}: {}".format(self.category.category_name, self.name)
+
+    # 用于在序列化过程中返回类别名称
+    @property
+    def category_name(self):
+        return self.category.category_name
+
+
+class Record(models.Model):
+
+    action_choice = (
+        ('add', 'add'),
+        ('sub', 'sub'),
+        ('delete', 'delete'),
+        ('modify', 'modify')
+    )
+
+    action = models.CharField(choices=action_choice, blank=True, max_length=20)
+    category_choice = (
+        ('category', 'category'),
+        ('goods', 'goods')
+    )
+    dest_obj = models.CharField(choices=category_choice, blank=False, max_length=20)
+    dest_val = models.CharField(blank=False, max_length=50)
+    amount = models.FloatField(null=True)
+    username = models.CharField(max_length=50)
+    time = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "{}: {}: {} with value: {} at {}".format(self.username, 		self.action, self.dest_obj, self.dest_val,                                                       self.amount)
+
+```
+
+这是一个简单的超市管理的小demo，category表示商品类别，goods表示商品，record表示商品操作记录。
+
+##### serializer
+
+随后创建serializer
+
+```python
+from .models import Goods, Category, Record
+from rest_framework import serializers
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ('category_name', 'description', 'id')
+        
+class GoodSerializer(serializers.ModelSerializer):
+    # category =  serializers.CharField(source='category.category_name')
+    category_name = serializers.ReadOnlyField()
+    class Meta:
+        model = Goods
+        fields= ('category_name', 'name', 'amount', 'id', 'time','category')
+class RecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Record
+        fields = ('username', 'action', 'dest_obj', 'dest_val', 'amount', 'id','time')
+```
+
+在Meta中声明serializer的对象是哪个数据源，要序列化的字段有哪些
+
+##### views
+
+随后编写需要的views
+
+```python
+from django.shortcuts import render
+from django.http import HttpResponse
+import jwt
+from .serializer import GoodSerializer, RecordSerializer, CategorySerializer
+from .models import Category, Goods, Record
+
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework import generics
+from rest_framework import permissions
+from rest_framework_jwt.authentication import JSONWebTokenAuthentication
+from rest_framework.authentication import BasicAuthentication
+from django.views.decorators.csrf import csrf_exempt
+import datetime
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
+import requests
+from django.conf import settings
+
+auth_classes = (JSONWebTokenAuthentication, BasicAuthentication)
+perm_classes = (permissions.IsAuthenticated,)
+
+
+class CategoryList(generics.ListCreateAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+    authentication_classes = auth_classes
+    permission_classes = perm_classes
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        category_name = request.data['category_name']
+        auth_str = request.auth.decode('utf-8')
+        data = jwt.decode(auth_str, key=settings.SECRET_KEY)
+        username = data['username']
+        create_res = self.create(request, *args, **kwargs)
+        record = Record.objects.create(action='add',
+                                       dest_obj='category',
+                                       dest_val=category_name,
+                                       username=username,
+                                       )
+        record.save()
+        return create_res
+
+
+class CategoryDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    authentication_classes = auth_classes
+    permission_classes = perm_classes
+
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)
+
+    def put(self, request, *args, **kwargs):
+        category_name = request.data['category_name']
+        auth_str = request.auth.decode('utf-8')
+        data = jwt.decode(auth_str, key=settings.SECRET_KEY)
+        username = data['username']
+        record = Record.objects.create(action='modify',
+                                       dest_obj='category',
+                                       dest_val=category_name,
+                                       username=username
+                                       )
+        record.save()
+        return self.update(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        category_id = kwargs['pk']
+        cate = Category.objects.get(id=category_id)
+        category_name = cate.category_name
+        auth_str = request.auth.decode('utf-8')
+        data = jwt.decode(auth_str, key=settings.SECRET_KEY)
+        username = data['username']
+        record = Record.objects.create(action='delete',
+                                       dest_obj='category',
+                                       dest_val=category_name,
+                                       username=username
+                                       )
+        record.save()
+        return self.destroy(request, *args, **kwargs)
+
+
+class GoodsList(generics.ListCreateAPIView):
+    queryset = Goods.objects.all()
+    serializer_class = GoodSerializer
+    authentication_classes = auth_classes
+    permission_classes = perm_classes
+
+    def get(self, request, *args, **kwargs):
+        if 'query' in request.query_params:
+            input_category_name = request.query_params['input_category_name']
+            input_good_name = request.query_params['input_good_name']
+            from_date = request.query_params['from_date']
+            to_date = request.query_params['to_date']
+            if input_category_name:
+                self.queryset = self.queryset.filter(
+                category__category_name__icontains=input_category_name
+                )
+            if input_good_name:
+                self.queryset = self.queryset.filter(name__icontains=input_good_name)
+            if from_date:
+                year, month, day = [int(item) for item in from_date.split('-')]
+                from_time = datetime.datetime(year=year, month=month, day=day)
+                self.queryset = self.queryset.filter(time__gt=from_time)
+            if to_date:
+                year, month, day = [int(item) for item in to_date.split('-')]
+                to_time = datetime.datetime(year=year, month=month, day=day)
+                self.queryset = self.queryset.filter(time__lt=to_time)
+
+        return self.list(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        data_res = self.create(request, *args, **kwargs)
+        category_id = request.data['category']
+        cate = Category.objects.get(id=category_id)
+        auth_str = request.auth.decode('utf-8')
+        data = jwt.decode(auth_str, key=settings.SECRET_KEY)
+        username = data['username']
+        record = Record.objects.create(action='add',
+                                       dest_obj='good',
+                                       dest_val=cate.category_name,
+                                       username=username
+                                       )
+        record.save()
+        return data_res
+
+
+class GoodsDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Goods.objects.all()
+    serializer_class = GoodSerializer
+    authentication_classes = auth_classes
+    permission_classes = perm_classes
+
+    def put(self, request, *args, **kwargs):
+        good_id = request.data['id']
+        good = Goods.objects.get(id=good_id)
+
+        if request.data['action'] == 'sub':
+            if good.amount >= float(request.data['action_amount']):
+                good.amount -= float(request.data['action_amount'])
+            else:
+                return Response({'code': 455, 'msg': 'amount greater than original value'},
+                                status=status.HTTP_304_NOT_MODIFIED)
+        elif request.data['action'] == 'add':
+            good.amount += int(request.data['action_amount'])
+
+        good.save()
+        auth_str = request.auth.decode('utf-8')
+        data = jwt.decode(auth_str, key=settings.SECRET_KEY)
+        username = data['username']
+        record = Record.objects.create(action='modify',
+                                       dest_obj='good',
+                                       dest_val=good.name,
+                                       username=username,
+                                       amount=float(request.data['action_amount'])
+                                       )
+        record.save()
+        return Response({'code': 656, 'msg': 'update success'}, status.HTTP_202_ACCEPTED)
+
+    def delete(self, request, *args, **kwargs):
+        good_id = kwargs['pk']
+        good = Goods.objects.get(id=good_id)
+        good_name = good.name
+        auth_str = request.auth.decode('utf-8')
+        data = jwt.decode(auth_str, key=settings.SECRET_KEY)
+        username = data['username']
+        record = Record.objects.create(action='delete',
+                                       dest_obj='good',
+                                       dest_val=good_name,
+                                       username=username
+                                       )
+        record.save()
+        return self.destroy(request, *args, **kwargs)
+
+```
+
+如果class继承了RetrieveUpdateDestroy，那么可以覆盖的方法有get，put，delete，表示单个对象的获取，修改，删除操作，如果继承了ListCreateAPIView，可以覆盖get与post，表示列表对象的获取，新建。
+
+##### url
+
+配置请求url
+
+```python
+from django.urls import path
+from .views import CategoryList, CategoryDetail, GoodsList, GoodsDetail, RecordList, RecordDetail,register
+app_names = 'management'
+
+urlpatterns = [
+    path('categories/', CategoryList.as_view(), name='categoriy list'),
+    path('categories/<int:pk>/',CategoryDetail.as_view() ),
+    path('records/', RecordList.as_view()),
+    path('records/<int:pk>/', RecordDetail.as_view()),
+    path('goods/', GoodsList.as_view()),
+    path('goods/<int:pk>/', GoodsDetail.as_view()),
+    path('register/', register)
+]
+```
+
+然后在主url入口
+
+```python
+path('management/', include('management.urls')),
+```
+
+##### 处理跨域
+
+cors
+
+```
+pip install django-cors
+```
+
+在app中注册
+
+```
+'corsheaders',
+```
+
+注册中间件
+
+```
+'corsheaders.middleware.CorsMiddleware',
+```
+
+注意要放在CsrfViewMiddleware之前
+
+配置允许访问的源列表
+
+```python
+CORS_ORIGIN_WHITELIST = [
+    "http://127.0.0.1:9000",
+    "http://localhost:9000",
+    "http://localhost:8000"
+]
+
+```
+
+启动应用， 在不配置认证的情况下，现在已经可以访问哪些api接口了
+
+##### 配置jwt认证
+
+在app中注册
+
+```
+'rest_framework.authtoken'
+```
+
+jwt配置项
+
+```python
+JWT_AUTH = {
+    'JWT_EXPIRATION_DELTA': datetime.timedelta(days=1),
+    'JWT_AUTH_HEADER_PREFIX': 'JWT',  # 设置 请求头中的前缀
+    'JWT_RESPONSE_PAYLOAD_HANDLER': 'jwt_util.util.jwt_response_payload_handler',
+}
+```
+
+url注册
+
+```python
+from rest_framework_jwt.views import obtain_jwt_token, refresh_jwt_token, verify_jwt_token
+path('api-token-auth/', obtain_jwt_token),
+path('api-token-refresh/', refresh_jwt_token),
+path('api-token-verify/', verify_jwt_token),
+```
+
+views的认证
+
+![1585402592759](/home/xiaozhi/Documents/notes/python/django/assets/1585402592759.png)
+
+###### 配置jwt认证失败与成功返回的内容
+
+建立jwt_util目录，声明两个函数
+
+```python
+def jwt_response_payload_handler(token, user=None, request=None):
+    """
+    自定义jwt认证成功返回数据
+    """
+    return {
+        'token': token,
+        'user_id': user.id,
+        'username': user.username
+    }
+
+def jwt_response_payload_error_handler(serializer, request):
+    return {
+        'msg': '用户名或密码错误',
+        'code': '400',
+        'error': serializer.errors
+    }
+```
+
+认证成功返回的内容只需要在配置中声明一下就好
+
+```
+'JWT_RESPONSE_PAYLOAD_HANDLER': 'jwt_util.util.jwt_response_payload_handler',
+```
+
+配置认证失败的内容需要修改部分源码
+
+rest_framework_jwt/settings.py
+
+DEFAULTS中添加
+
+```
+'JWT_RESPONSE_PAYLOAD_ERROR_HANDLER':
+'rest_framework_jwt.utils.jwt_response_payload_error_handler',
+```
+
+IMPORT_SETTINGS中添加
+
+```
+'JWT_RESPONSE_PAYLOAD_ERROR_HANDLER'
+```
+
+rest_framework_jwt/views.py
+
+```
+jwt_response_payload_error_handler = api_settings.JWT_RESPONSE_PAYLOAD_ERROR_HANDLER
+```
+
+![1585403096975](/home/xiaozhi/Documents/notes/python/django/assets/1585403096975.png)
+
+71行
+
+```
+		error_data = jwt_response_payload_error_handler(serializer, request)
+        return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
+```
+
+![1585403178623](/home/xiaozhi/Documents/notes/python/django/assets/1585403178623.png)
+
+在setting中声明
+
+```
+'JWT_RESPONSE_PAYLOAD_ERROR_HANDLER': 'jwt_util.util.jwt_response_payload_error_handler'
+```
+
+### 在普通views函数中返回json对象
 
 ```python
 HttpResponse(json.dumps(result, ensure_ascii=False), content_type="application/json,charset=utf-8")
@@ -765,11 +1271,220 @@ HttpResponse(json.dumps(result, ensure_ascii=False), content_type="application/j
 
 
 
+
+
+## Vue与django的整合
+
+### 主页映射
+
+前后端分离设计中，vue构建好的前端静态界面，在django中需要以模板的方式存在。
+
+建立django工程与应用，在django工程目录中创建frontend目录，在其中配置vue。
+
+```
+vue-init webpack projectname directoryname
+```
+
+从网上下载模板的时候可能需要chromedriver，这个github下载速度很慢，安装可以
+
+```
+npm install chromedriver --chromedriver_cdnurl=https://npm.taobao.org/mirrors/chromedriver
+```
+
+安装好后，构建成功的文件是frontend/dist/index.html
+
+我们需要把这个文件映射到django的根url，
+
+在django的模板配置中
+
+```python
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [os.path.join(BASE_DIR, 'frontend/dist/')],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+```
+
+将frontend/dist/添加进dirs中，在url入口
+
+```python
+path(r'', TemplateView.as_view(template_name='index.html')),
+```
+
+此时vue构建之后访问django主页，就是vue界面了
+
+
+
+### vue中的bootstrap与jquery
+
+vue2.x里使用bootstrap与jquery
+
+安装依赖
+
+```shell
+npm install jquery --save
+npm install bootstrap --save
+npm install popper.js --save
+```
+
+webpack.base.conf.js
+
+```js
+//在顶部添加
+const webpack = require('webpack')
+
+//在module.exports = {}末尾添加下面代码
+module.exports = {
+...
+plugins: [
+    new webpack.ProvidePlugin({
+      $: "jquery",
+      jQuery: "jquery"
+    })
+  ]
+}
+```
+
+main.js
+
+```js
+import $ from 'jquery'
+import 'bootstrap'
+import 'bootstrap/dist/css/bootstrap.min.css'
+```
+
+### axios的使用
+
+axios可以在js中方便的发送http请求，github上的文档非常清晰，这里说一个需要注意的点，axios的默认配置使用起来非常的方便。后端url接口是一个常量，硬编码在代码里不太好，放在vuex中统一管理，并在应用创建之前，设置为axios的默认值，这样整个vue应用过程中使用axios都无需在指定基础url
+
+```
+ created() {
+    axios.defaults.baseURL = this.$store.getters.backend_base_url;
+ }
+```
+
+如果后端接口需要token认证的话，axios需要配置请求头，也可以采用默认值，将vuex实例的token映射到app中，然后监控该token变化时，设置axios请求的token默认值
+
+```js
+watch: {
+    token: function(newVal){
+      axios.defaults.headers.common['Authorization'] = this.$store.getters.auth_str;
+    }
+  }
+```
+
+这样解决了axios的认证。
+
+一个使用get的例子
+
+```js
+axios
+.get("management/categories/")
+.then(response => {
+// console.log(response);
+this.categories = response.data.results;
+console.log(`category list fetched!`);
+// console.log(this.categories);
+})
+.catch(error => {
+console.log("get category list failed!");
+console.log(error.response);
+});
+```
+
+一个使用post的例子
+
+```js
+axios
+    .post(add_good_url, {
+    category: cate.id,
+    name: this.input_good_name,
+    amount: 0
+},{
+    // headers:{
+    //   'Authorization':this.$store.getters.auth_str
+    // }
+})
+    .then(response => {
+    this.update_goods();
+    console.log(`good ${this.input_good_name} added!`);
+    this.$emit("update-records");
+})
+    .catch(error => {
+    console.log(error);
+});
+```
+
+一个使用put的例子
+
+```js
+axios
+    .put(modify_url, {
+    id: good.id,
+    name: good.name,
+    action: this.select_action_str,
+    action_amount: this.input_good_amount
+},{
+    // headers:{
+    //   'Authorization':this.$store.getters.auth_str
+    // }
+})
+    .then(response => {
+    this.update_goods();
+    console.log(`good ${good.name} updated!`)
+    this.$emit("update-records");
+})
+    .catch(error => {
+    console.log(error);
+});
+```
+
+一个使用delete的例子
+
+```js
+axios
+    .delete(delete_url,{
+    // headers:{
+    //   'Authorization':this.$store.getters.auth_str
+    // }
+})
+    .then(response => {
+    this.update_goods();
+    console.log(`good ${id} deleted!`)
+    this.$emit("update-records");
+})
+    .catch(error => {
+    console.log(error);
+});
+```
+
+### tips
+
+vue中，在mounted钩子函数中使用methods中的函数时，需要将mounted声明为匿名函数
+
+```js
+mounted:function(){
+    
+}
+```
+
+vue父子组件事件渲染顺序
+
+父组件beforeCreate => 父组件created => 父组件beforeMount => 子组件beforeCreate => 子组件created => 子组件 beforeMount => 子组件mounted => 父组件mounted => 父组件beforeDestroy => 子组件 beforeDestroy
+
 ## 环境配置指南
 
 ### mysql的docker环境配置
-
-
 
 ## errors解决方案
 

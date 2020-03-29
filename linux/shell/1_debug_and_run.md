@@ -390,4 +390,233 @@ done
 
 ## 函数
 
- 
+shell中的函数与一般程序设计语言中的函数概念相同，将一组语句定义为一个函数，当想执行该组语句时调用该函数即可，通过参数可变实现功能扩展，提高代码重用性，而且模块儿化开发更容易维护
+
+### 定义函数
+
+```shell
+function fun1() { 
+command
+}
+function fun2 {
+command
+}
+fun3(){
+command
+}
+```
+
+以上三种方式都可以定义函数，推荐使用第一种方式，在函数中可以使用return语句返回一个值，在函数结束时返回给当前程序，可用$?取得。函数调用时，使用`fun_name`的形式，不需要加括号，这和一般编程语言语法出入较大，需注意。
+
+### 函数的调用与运行时参数
+
+函数调用
+`funname para1 para2 para3`
+在函数中可以通过$1 $2 $3 $# $? $* $@使用这些参数，父脚本参数临时被隐藏。
+
+```bash
+function f1(){
+	    echo "you type $# param"
+    echo "they are $@ "
+}
+function f2(){
+    echo "you type $# param in f2 call"
+    echo "they are $@"
+}
+f1 
+f2 1 2 3 4 5
+```
+
+输出如下
+
+```bash
+$ bash test_param.sh 
+you type 0 param
+they are  
+you type 5 param in f2 call
+they are 1 2 3 4 5
+```
+
+### 函数示例
+
+（检测url是否可达，使用wget工具，根据返回值来判断）
+
+```bash
+function usage(){
+    echo "usage: $0 url"
+    exit 1
+}
+function check(){
+    wget --spider -q -o /dev/null -T 5 $1
+    if [ $? -eq 0 ]
+    then
+    	    echo "url test susscefully"
+    else
+	    echo "failed"
+    fi
+}
+function main(){
+    if [ $# -ne 1 ]
+    then
+	    usage
+    fi
+    check $1
+}
+main $*
+```
+
+
+
+## case与循环
+
+### case语法
+
+```bash
+case "var" in 
+    value1 )
+        command_block1
+        ;;
+    value2 )
+        command_block2
+        ;;
+    * )
+        command_block3
+esac
+```
+
+示例
+
+```bash
+read -p "please input a number in [0-9]>" num
+case $num in 
+    1)
+    	    echo "you typed 1!"
+	    ;;
+    2)
+	    echo "you typed 3!"
+	    ;;
+    [3-9])
+	    echo "you typed $num"
+	    ;;
+    *)
+	    echo "invalid augument!"
+esac
+```
+
+### while循环
+
+语法格式
+
+```bash
+while condition
+do
+    command_block
+done
+
+until condition
+do 
+    command_block
+done
+```
+
+while会在条件成立时进入循环体，直到条件不成立退出，until会在条件不成立时进入循环体，直到条件成立退出
+while循环按行读取文件
+
+```bash
+exec <test.sh
+while read line
+do
+    echo $line
+done
+
+cat test.sh | while read line
+do
+	    echo $line
+done
+```
+
+### for循环与select
+
+select用于菜单选项执行,循环过程中取值列表可省略，表示$@
+
+```bash
+for var in (val1 val2 val3)
+do 
+    command_block
+done
+
+for((exp1;exp2;exp3))
+do
+    command_block
+done
+
+select var in [ var list ]
+do
+    command_block
+done
+```
+
+select示例（PS3代表命令提示符，$REPLY代表选择的数字)
+
+```bash
+PS3="select a num for menu>"
+select name in xiaoming xiaohong xiaobai
+do
+    echo "you selected : $REPLY)$name"
+done	
+```
+
+continue、break、return、exit对比其他语言理解
+
+## 信号
+
+### 信号是什么
+
+信号作为一种进程间通信的方式，是linux进程管理使用最为广泛的方式，通过给进程发送信号，来传递信息，比如按下crtl-c，向当前进程发送INT信号，linux常见信号列表如下
+![](https://upload-images.jianshu.io/upload_images/10339396-9c9749ec53b3aec2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+### 重要信号说明
+
+![](https://upload-images.jianshu.io/upload_images/10339396-1ca4afa6a216dbf8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+### 使用trap命令管理应用进程信号
+
+`trap command signal`
+command表示捕捉到signal时执行的命令，使用信号名称时需要省略SIG前缀
+
+```
+trap 'ls /tmp/xiaozhi_* | xargs rm -f && exit' INT
+while true
+do
+    touch /tmp/xiaozhi_`date +%F-%H:%M:%S`.txt
+    sleep 3
+    ls /tmp/xiaozhi_*
+done
+```
+
+## 常用操作
+
+### 数字序列
+
+```bash
+seq 5 -1 1 | xargs
+```
+
+![](https://upload-images.jianshu.io/upload_images/10339396-c294484c44c5fc46.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+### 使用{..}生成数值序列
+
+```bash
+echo {1..9}
+输出
+1 2 3 4 5 6 7 8 9
+```
+
+### 随机数
+
+-   使用$RANDOM生成范围在0-32767之间的随机数，为保证随机性，可使用md5sum命令产生随机序列并截取其中某些位
+    `echo $RANDOM | md5sum | cut -c 8-15` 
+    `75d6c028`
+-   使用openssl产生随机数
+    `openssl rand -base64 8`
+    `WJeQaLlePm8=`

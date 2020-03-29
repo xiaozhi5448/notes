@@ -607,9 +607,217 @@ int add_task_2_tpool(tpool *pool, void *(*routine)(int, struct sockaddr_in*, Log
 
 ```
 
+### 多进程
 
+#### fork与vfork
+
+linux下多进程使用fork与vfork系统调用实现。fork会在内存中复制一个一样的进程映像，进入子进程后，子进程可以选择执行自己想要执行的操作。vfork与fork不同的是，vfork不会复制进程映像，因为创建子进程后一般使用exec系列调用执行新的程序，先复制，然后被替换，那么复制操作就是没有意义的。fork会返回一个pid_t类型的值，在父进程中该值是子进程id，在子进程中该值是0。
+
+![1585050623252](/home/xiaozhi/Documents/notes/C++/assets/1585050623252.png)
+
+waitpid函数可以用来等待某个进程结束。
+
+![1585050648955](/home/xiaozhi/Documents/notes/C++/assets/1585050648955.png)
+
+一个使用fork的例子
+
+```c
+pid_t pid = fork();
+if(pid == 0){
+    // child process
+    
+}else{
+    // parent process
+    waitpid(pid, NULL, 0);
+}
+```
+
+
+
+#### 程间通信
+
+##### pipe管道
+
+linux系统调用pipe会创建一个管道，一端用于读，一端用于写
+
+```c
+#include <unistd.h>
+
+int pipe(int pipefd[2]);
+
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
+#include <fcntl.h>              /* Obtain O_* constant definitions */
+#include <unistd.h>
+
+int pipe2(int pipefd[2], int flags);
+
+```
+
+pipe()  creates  a  pipe, a unidirectional data channel that can be used for interprocess communication.  The array pipefd is used to return two file descriptors referring to the ends of the pipe.  pipefd[0]  refers  to the  read  end of the pipe.  pipefd[1] refers to the write end of the pipe.  Data written to the write end of  the pipe is buffered by the kernel until it is read from the read end of the pipe.  For further details,  see   pipe(7).
+
+在父进程中使用pipe创建管道以后fork一个子进程，此时子进程与父进程都有pipe数组，pipe在使用完毕后需要及时关闭，如果未关闭的话，系统会认为还有数据未处理，另一端的操作会被阻塞。
+
+一个使用pipe和fork实现命令行管道通信的例子
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+
+// Assume that each command line has at most 256 characters (including NULL)
+#define MAX_CMDLINE_LEN 256
+
+// Assume that we have at most 16 pipe segments
+#define MAX_PIPE_SEGMENTS 16
+
+// Assume that each segment has at most 256 characters (including NULL)
+#define MAX_SEGMENT_LENGTH 256
+
+#define MAX_OUTPUT_LENGTH 1024
+
+void process_cmd(char *cmdline);
+void tokenize(char **argv, char *line, int *numTokens, char *token);
+/* The main function implementation */
+int main()
+{
+    char cmdline[MAX_CMDLINE_LEN];
+    fgets(cmdline, MAX_CMDLINE_LEN, stdin);
+    process_cmd(cmdline);
+    return 0;
+}
+
+void set_noblocking(int fd)
+{
+    int flags = fcntl(fd, F_GETFL, 0);
+    flags |= O_NONBLOCK;
+    fcntl(fd, F_SETFL, flags);
+}
+
+void process_cmd(char *cmdline)
+{
+    char middle_content[MAX_OUTPUT_LENGTH];
+    memset(middle_content, '\0', MAX_OUTPUT_LENGTH);
+    char **cmds = (char **)malloc(sizeof(char *) * MAX_PIPE_SEGMENTS);
+    memset(cmds, 0, sizeof(char *) * MAX_PIPE_SEGMENTS);
+    int cmd_count;
+    tokenize(cmds, cmdline, &cmd_count, "|\n");
+    for (int i = 0; i < cmd_count; i++)
+    {
+        // write data to stdin of child process
+        int write_fds[2];
+        if (pipe(write_fds) != 0)
+        {
+            exit(EXIT_FAILURE);
+        }
+        // used to get output from child process
+        int read_fds[2];
+        if (pipe(read_fds) != 0)
+        {
+            exit(EXIT_FAILURE);
+        }
+        write(write_fds[1], middle_content, strlen(middle_content));
+
+        pid_t pid = fork();
+        if (pid == 0)
+        {
+            // child process
+            // close useless file descriptor
+            close(write_fds[1]);
+            close(read_fds[0]);
+           // dump write_fds[0] to stdin
+            if (dup2(write_fds[0], STDIN_FILENO) == -1)
+            {
+                exit(EXIT_FAILURE);
+            };
+            // dump read_fds[1] to stdout
+            if (dup2(read_fds[1], STDOUT_FILENO) == -1)
+            {
+                exit(EXIT_FAILURE);
+            };
+            char command[MAX_SEGMENT_LENGTH];
+            memset(command, '\0', MAX_SEGMENT_LENGTH);
+            strncpy(command, cmds[i], strlen(cmds[i]));
+            int argc;
+            char *argv[16];
+            tokenize(argv, command, &argc, " \n");
+            argv[argc] = NULL;
+            execvp(argv[0], argv);
+
+            perror("execv:");
+        }
+        else
+        {
+            // close useless file descriptor
+            close(write_fds[0]);
+            close(write_fds[1]);
+            close(read_fds[1]);
+            // set read pipe no blocking
+            set_noblocking(read_fds[0]);
+            waitpid(pid, NULL, 0);
+            int read_res = read(read_fds[0], middle_content, MAX_OUTPUT_LENGTH);
+            middle_content[read_res] = '\0';
+            close(read_fds[0]);
+        }
+    }
+    printf("%s", middle_content);
+    free(cmds);
+}
+// Implementation of tokenize function
+void tokenize(char **argv, char *line, int *numTokens, char *delimiter)
+{
+    int argc = 0;
+    char *token = strtok(line, delimiter);
+    while (token != NULL)
+    {
+        argv[argc++] = token;
+        token = strtok(NULL, delimiter);
+    }
+    argv[argc++] = NULL;
+    *numTokens = argc - 1;
+}
+
+```
+
+dup是linux用来dump文件描述符的工具，了解一下dup2
+
+```c
+#include <unistd.h>
+
+int dup(int oldfd);
+int dup2(int oldfd, int newfd);
+
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
+#include <fcntl.h>              /* Obtain O_* constant definitions */
+#include <unistd.h>
+
+int dup3(int oldfd, int newfd, int flags);
+```
+
+The dup2() system call performs the same task as dup(), but instead of using the lowest-numbered unused  file   descriptor,  it  uses the file descriptor number specified in newfd.  If the file descriptor newfd was previously open, it is silently closed before being reused.
+
+dup2会关闭newfd本来的连接，使用newfd重新打开oldfd指向的文件，该调用完成之后，newfd会指向与oldfd相同的文件。这个功能在我们想操作子进程标准输入与标准输出时有用。比如我们想把父进程的数据发送到子进程的标准输入，使用
+
+```C
+dup2(pipe_fds[0], STDIN_FILENO);
+```
+
+父进程发送到pipe_fds[1]的数据都会算作子进程的标准输入。
+
+还有使用
+
+```
+dup2(pipe_fds[1], STDOUT_FILENO);
+```
+
+会使stdout指向pipe_fds[1],输出到标准输出的内容都会输出到pipe_fds[1],在管道的另一端pipe_fds[0]可以读取内容。
 
 ## socket网络程序设计
+
+
 
 设计socket程序时,要提前设计好通信协议,socket通信步骤范式十分明显,对服务端程序来说
 
@@ -667,6 +875,30 @@ setsockopt(server->serverFd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
 调用范例
 
 ```c
+int hostname_to_ip(char * hostname , char* ip)
+{
+	struct hostent *he;
+	struct in_addr **addr_list;
+	int i;
+	if ( (he = gethostbyname( hostname ) ) == NULL) 
+	{
+		// get the host info
+		herror("gethostbyname");
+		return 1;
+	}
+	addr_list = (struct in_addr **) he->h_addr_list;
+	
+	for(i = 0; addr_list[i] != NULL; i++) 
+	{
+		//Return the first one;
+		strcpy(ip , inet_ntoa(*addr_list[i]) );
+		return 0;
+	}
+	return 1;
+}
+
+
+
 struct hostent *hostinfo;
 hostinfo = gethostbyname(hostname);
 server->serverAddress->sin_port = htons(port);
@@ -713,6 +945,57 @@ struct sockaddr_in *clientAddress = (struct sockaddr_in *)malloc(sizeof(struct s
 int clientLen = sizeof(clientAddress);
 clientFd = accept(server->serverFd, (struct sockaddr *)clientAddress, (socklen_t * __restrict) & clientLen);
 ```
+
+### 地址的初始化
+
+用到的地址结构
+
+```c
+struct sockaddr {
+	sa_family_t sa_family;
+	char        sa_data[14];
+}
+
+struct sockaddr_in {  
+    short            sin_family;       // 2 bytes e.g. AF_INET, AF_INET6  
+    unsigned short   sin_port;    // 2 bytes e.g. htons(3490)  
+    struct in_addr   sin_addr;     // 4 bytes see struct in_addr, below  
+    char             sin_zero[8];     // 8 bytes zero this if you want to  
+};  
+  
+struct in_addr {  
+    unsigned long s_addr;          // 4 bytes load with inet_pton()  
+};  
+```
+
+linux 中关于socket的系统调用基本都是用sockaddr，但是该地址设置非常不方便，将ip地址与端口混淆，编写程序时，应该使用sockaddr_in
+
+![1583311788576](/home/xiaozhi/Documents/notes/C++/assets/1583311788576.png)
+
+典型的初始化socket地址的方式为
+
+```c
+struct sockaddr_in server_addr;
+server_addr.sin_family = AF_INET;
+server_addr.sin_port = htons(port);
+inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
+bind(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+```
+
+下面的例子从struct sockaddr_in类型的变量中获取端口号与ip地址，同样的创建sockaddr_in类型的变量，传入的时候强制转换为sockaddr
+
+```c
+struct sockaddr_in client_addr;
+int client_addr_len = sizeof(client_addr);
+bzero(&client_addr, sizeof(client_addr));
+char line[100];
+recvfrom(socket_fd, line, MSG_MAXLENGTH, MSG_WAITALL, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
+printf("accept connection from: [%s %d]\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+```
+
+
+
+
 
 ### 异步编程之 select
 
@@ -1184,7 +1467,13 @@ epoll与select和poll先比性能更高,使用事件回调的机制,减小了操
 
 ### 设计模式
 
-使用多线程方式,创建两个消息队列,一个待发送队列,一个接收队列,所有网络操作放到一个线程中进行,使用锁保持线程同步
+#### tcp
+
+使用多线程方式,创建两个消息队列,一个待发送队列,一个接收队列,所有网络操作放到一个线程中进行,使用锁保持线程同步。tcp连接需要使用多路复用，在发送和接收时需要检测当前是否可读或可写
+
+#### udp
+
+udp是无连接的协议，所以发送与接收数据时，使用迭代的方式而不是异步复用。
 
 ## 日志记录与错误输出
 
