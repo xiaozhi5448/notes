@@ -48,7 +48,10 @@ $ git commit -m "add readme file"
  create mode 100644 readme.txt
 ```
 git中工作区和暂存区的概念十分重要，工作区即是我们用作版本库的目录，在使用init命令初始化repository时，会在工作区创建.git目录，这个目录是git的版本库，我们对仓库所作的修改都保存在.git目录下，.git目录中有一个区域叫暂存区，用于临时存放我们对版本库的更改，git自动为我们创建主分支master以及指向该分支的指针HEAD，分支与HEAD后面再说。使用add时，是将操作放在暂存区中，使用commit时，将暂存区的操作提交到分支中
-![](https://upload-images.jianshu.io/upload_images/10339396-985162ea6fa8eefe.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+![1595725689603](git_introduction.assets/1595725689603.png)
+
 向readme文件中添加一行，并新建文件，使用status子命令查看git仓库的状态
 ![](https://upload-images.jianshu.io/upload_images/10339396-4d3be3e6957ad020.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 将新建的文件和修改过的文件添加到暂存区，再查看状态
