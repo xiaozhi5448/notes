@@ -18,7 +18,9 @@ whois信息
 
 maltego
 
-wydomain
+[wydomain](https://github.com/brianwrf/wydomain )
+
+[subdomain3](https://github.com/yanxiu0614/subdomain3 )
 
 ##### 搜索引擎
 
@@ -28,7 +30,7 @@ wydomain
 
 站长之家<https://tool.chinaz.com/subdomain>
 
-![1592989393328](assets/1592989393328.png)
+![1595753070661](assets/1595753070661.png)
 
 https://dnsdumpster.com
 
@@ -68,8 +70,6 @@ nmap
 
 <https://www.exploit-db.com/google-hacking-database>
 
-![1593072483759](assets/1593072483759.png)
-
 
 
 #### 使用github
@@ -80,8 +80,6 @@ site: github.com root password
 
 site: github.com userId Password
 
-![1593072926037](assets/1593072926037.png)
-
 ### ip地址
 
 #### 判断cdn服务器
@@ -89,8 +87,6 @@ site: github.com userId Password
 使用ping
 
 绕过cdn
-
-![1593073352454](assets/1593073352454.png)
 
 通过viewdns网站查询ip。
 
@@ -465,4 +461,14 @@ burpsuite
 XML外部实体注入，当xml未限制引入的外部实体，可能导致文件读取、敏感信息泄露
 
 ### 命令执行
+
+
+
+## 漏洞扫描工具
+
+### OpenVAS
+
+
+
+
 
