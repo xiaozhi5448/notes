@@ -112,47 +112,6 @@ void* thread_func(void *arg){
 可以通过pthread_setcanceltype()来改变线程的cancel type，但强烈不建议这样做，因为你如果改为PTHREAD_CANCEL_ASYNCHRONOUS类型，线程可以在代码的任何地方退出，就很难处理上述两个资源释放问题。
 一个取消线程的简单示例
 
-```c
-#include<stdio.h>
-#include<string.h>
-#include<pthread.h>
-#include<stdlib.h>
-#include<unistd.h>
-void *thread_func(void *arg){
-    int res;
-    res = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-    if(res != 0){
-        perror("设置线程取消失败");
-        exit(EXIT_FAILURE);
-    }
-    if((res = pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL)) != 0){
-        perror("设置线程取消类型失败！");
-        exit(EXIT_FAILURE);
-    }
-    printf("子线程正在运行！\n");
-    for(int i = 0; i < 10; i++){
-        sleep(1);
-        printf("子线程正在运行！\n");
-    }
-    pthread_exit(EXIT_SUCCESS);
-}
-int main(){
-    int res;
-    pthread_t thread;
-    if((res = pthread_create(&thread, NULL, thread_func, NULL)) != 0){
-        perror("线程创建失败！");
-        exit(EXIT_FAILURE);
-    }
-    sleep(3);
-    printf("取消线程！\n");
-    if((res = pthread_cancel(thread)) != 0){
-        perror("取消线程失败！");
-        exit(EXIT_FAILURE);
-    }
-    exit(EXIT_SUCCESS);
-}
-```
-
 #### 线程同步
 
 ##### 信号量
@@ -613,11 +572,70 @@ int add_task_2_tpool(tpool *pool, void *(*routine)(int, struct sockaddr_in*, Log
 
 linux下多进程使用fork与vfork系统调用实现。fork会在内存中复制一个一样的进程映像，进入子进程后，子进程可以选择执行自己想要执行的操作。vfork与fork不同的是，vfork不会复制进程映像，因为创建子进程后一般使用exec系列调用执行新的程序，先复制，然后被替换，那么复制操作就是没有意义的。fork会返回一个pid_t类型的值，在父进程中该值是子进程id，在子进程中该值是0。
 
-![1585050623252](/home/xiaozhi/Documents/notes/C++/assets/1585050623252.png)
+```c
+NAME
+       fork - create a child process
+
+SYNOPSIS
+       #include <sys/types.h>
+       #include <unistd.h>
+
+       pid_t fork(void);
+
+```
+
+
 
 waitpid函数可以用来等待某个进程结束。
 
-![1585050648955](/home/xiaozhi/Documents/notes/C++/assets/1585050648955.png)
+```c
+NAME
+       wait, waitpid, waitid - wait for process to change state
+
+SYNOPSIS
+       #include <sys/types.h>
+       #include <sys/wait.h>
+
+       pid_t wait(int *wstatus);
+
+       pid_t waitpid(pid_t pid, int *wstatus, int options);
+
+       int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
+                       /* This is the glibc and POSIX interface; see
+                          NOTES for information on the raw system call. */
+
+```
+
+pid参数的值
+
+```
+The value of pid can be:
+
+       < -1   meaning wait for any child process whose process group ID is equal to the absolute value
+              of pid.
+
+       -1     meaning wait for any child process.
+
+       0      meaning wait for any child process whose process group ID is equal to that of the  call‐
+              ing process.
+
+       > 0    meaning wait for the child whose process ID is equal to the value of pid.
+```
+
+options参数的值
+
+```
+WNOHANG     return immediately if no child has exited.
+
+WUNTRACED   also  return  if  a  child  has stopped (but not traced via ptrace(2)).  	Status for traced children which have stopped is provided even if this option  is  		not  specified.
+
+WCONTINUED (since Linux 2.6.10)
+      also return if a stopped child has been resumed by delivery of SIGCONT.
+```
+
+wstatus是一个结果参数，指向的整数中保存了进程的状态信息，使用一些预定义的宏可以查看进程因何种原因产生了信号
+
+
 
 一个使用fork的例子
 
@@ -799,7 +817,9 @@ int dup3(int oldfd, int newfd, int flags);
 
 The dup2() system call performs the same task as dup(), but instead of using the lowest-numbered unused  file   descriptor,  it  uses the file descriptor number specified in newfd.  If the file descriptor newfd was previously open, it is silently closed before being reused.
 
-dup2会关闭newfd本来的连接，使用newfd重新打开oldfd指向的文件，该调用完成之后，newfd会指向与oldfd相同的文件。这个功能在我们想操作子进程标准输入与标准输出时有用。比如我们想把父进程的数据发送到子进程的标准输入，使用
+dup2会关闭newfd本来的连接，使用newfd重新打开oldfd指向的文件，该调用完成之后，newfd会指向与oldfd相同的文件。这个功能在我们想操
+
+作子进程标准输入与标准输出时有用。比如我们想把父进程的数据发送到子进程的标准输入，使用
 
 ```C
 dup2(pipe_fds[0], STDIN_FILENO);
@@ -814,6 +834,10 @@ dup2(pipe_fds[1], STDOUT_FILENO);
 ```
 
 会使stdout指向pipe_fds[1],输出到标准输出的内容都会输出到pipe_fds[1],在管道的另一端pipe_fds[0]可以读取内容。
+
+##### 信号
+
+
 
 ## socket网络程序设计
 
@@ -839,7 +863,19 @@ dup2(pipe_fds[1], STDOUT_FILENO);
 
 #### 分配socket描述符
 
-![1577353943872](/home/xiaozhi/Documents/notes/C++/assets/1577353943872.png)
+```c
+NAME
+       socket - create an endpoint for communication
+
+SYNOPSIS
+       #include <sys/types.h>          /* See NOTES */
+       #include <sys/socket.h>
+
+       int socket(int domain, int type, int protocol);
+
+```
+
+
 
 出错时返回-1,并error会被设置为错误代码,调用形式如下
 
@@ -849,7 +885,19 @@ serverFd = socket(AF_INET, SOCK_STREAM, 0);
 
 #### 设置socket选项
 
-![1577354067764](/home/xiaozhi/Documents/notes/C++/assets/1577354067764.png)
+```c
+NAME
+       getsockopt, setsockopt - get and set options on sockets
+
+SYNOPSIS
+       #include <sys/types.h>          /* See NOTES */
+       #include <sys/socket.h>
+
+       int getsockopt(int sockfd, int level, int optname,
+                      void *optval, socklen_t *optlen);
+       int setsockopt(int sockfd, int level, int optname,
+                      const void *optval, socklen_t optlen);
+```
 
 出错时返回-1,成功返回0,sockfd表示套接字描述符,level表示设置选项的level,socket操作时一般设置为SOL_SOCKET, optval是一个指针,指向要设置选项的值,optlen是optval的大小
 
@@ -864,13 +912,82 @@ setsockopt(server->serverFd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
 
 由于字节序的问题,设置socket地址时,需要将主机字节序的数据,转换为网络字节序数据,htons可以将本机整型的数据转换为网络整形,用于转换端口.gethostbyname可以将字符串形式表示的主机名称解析为网络字节序的ip地址
 
-![1577354953200](/home/xiaozhi/Documents/notes/C++/assets/1577354953200.png)
+```c
+NAME
+       htonl, htons, ntohl, ntohs - convert values between host and network byte order
+SYNOPSIS
+       #include <arpa/inet.h>
+       uint32_t htonl(uint32_t hostlong);
+       uint16_t htons(uint16_t hostshort);
+       uint32_t ntohl(uint32_t netlong);
+       uint16_t ntohs(uint16_t netshort);
+```
 
-![1577355326953](/home/xiaozhi/Documents/notes/C++/assets/1577355326953.png)
+
+
+```c
+NAME
+       gethostbyname,  gethostbyaddr, sethostent, gethostent, endhostent, h_errno, herror, hstrerror,
+       gethostbyaddr_r, gethostbyname2, gethostbyname2_r, gethostbyname_r, gethostent_r - get network
+       host entry
+
+SYNOPSIS
+       #include <netdb.h>
+       extern int h_errno;
+
+       struct hostent *gethostbyname(const char *name);
+
+```
+
+```c
+The hostent structure is defined in <netdb.h> as follows:
+
+           struct hostent {
+               char  *h_name;            /* official name of host */
+               char **h_aliases;         /* alias list */
+               int    h_addrtype;        /* host address type */
+               int    h_length;          /* length of address */
+               char **h_addr_list;       /* list of addresses */
+           }
+           #define h_addr h_addr_list[0] /* for backward compatibility */
+
+```
+
+
 
 失败时返回null,herror与hstrerror分别从h_errno中获取错误信息
 
-![1577354985600](/home/xiaozhi/Documents/notes/C++/assets/1577354985600.png)
+getaddrinfo, getnameinfo, gai_strerror
+
+```c
+struct addrinfo {
+    int              ai_flags;
+    int              ai_family;
+    int              ai_socktype;
+    int              ai_protocol;
+    socklen_t        ai_addrlen;
+    struct sockaddr *ai_addr;
+    char            *ai_canonname;
+    struct addrinfo *ai_next;
+};
+NAME
+       getaddrinfo, freeaddrinfo, gai_strerror - network address and service translation
+
+SYNOPSIS
+       #include <sys/types.h>
+       #include <sys/socket.h>
+       #include <netdb.h>
+
+       int getaddrinfo(const char *node, const char *service,
+                       const struct addrinfo *hints,
+                       struct addrinfo **res);
+
+       void freeaddrinfo(struct addrinfo *res);
+
+       const char *gai_strerror(int errcode);
+```
+
+
 
 调用范例
 
@@ -922,7 +1039,19 @@ inet_pton将字符串类型的ip地址转换为网络地址
 
 #### 绑定地址
 
-![1577355509546](/home/xiaozhi/Documents/notes/C++/assets/1577355509546.png)
+```c
+NAME
+       bind - bind a name to a socket
+
+SYNOPSIS
+       #include <sys/types.h>          /* See NOTES */
+       #include <sys/socket.h>
+
+       int bind(int sockfd, const struct sockaddr *addr,
+                socklen_t addrlen);
+```
+
+
 
 失败返回-1,成功返回0
 
@@ -934,7 +1063,18 @@ bind(server->serverFd, (struct sockaddr *)(server->serverAddress), sizeof(struct
 
 #### 接受请求
 
-![1577355622904](/home/xiaozhi/Documents/notes/C++/assets/1577355622904.png)
+```c
+NAME
+       accept, accept4 - accept a connection on a socket
+
+SYNOPSIS
+       #include <sys/types.h>          /* See NOTES */
+       #include <sys/socket.h>
+
+       int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+```
+
+
 
 失败返回-1,成功的话返回接收到的套接字描述符
 
@@ -1001,13 +1141,33 @@ printf("accept connection from: [%s %d]\n", inet_ntoa(client_addr.sin_addr), nto
 
 c程序中read与write操作默认阻塞程序执行,要实现异步socket通信,需要使用检测机制,判断socket是否有数据接收,或是数据是否可以发送,最原始的检测手段为select系统调用,win与linux通用
 
-![1577590189078](/home/xiaozhi/Documents/notes/C++/assets/1577590189078.png)
-
 参数分别表示要检测的文件描述符的个数,可读检测列表,可写检测列表,异常列表,与阻塞等待的时间,传入0表示非阻塞,立即返回
 
 与select有关的一些系统调用被封装到宏中
 
-![1577590578149](/home/xiaozhi/Documents/notes/C++/assets/1577590578149.png)
+```c
+NAME
+       select, pselect, FD_CLR, FD_ISSET, FD_SET, FD_ZERO - synchronous I/O multiplexing
+
+SYNOPSIS
+       /* According to POSIX.1-2001, POSIX.1-2008 */
+       #include <sys/select.h>
+
+       /* According to earlier standards */
+       #include <sys/time.h>
+       #include <sys/types.h>
+       #include <unistd.h>
+
+       int select(int nfds, fd_set *readfds, fd_set *writefds,
+                  fd_set *exceptfds, struct timeval *timeout);
+
+       void FD_CLR(int fd, fd_set *set);
+       int  FD_ISSET(int fd, fd_set *set);
+       void FD_SET(int fd, fd_set *set);
+       void FD_ZERO(fd_set *set);
+```
+
+
 
 ```c
  #include <stdio.h>
@@ -1103,7 +1263,21 @@ SYNOPSIS
 
 其中op可选的操作有如下三种
 
-![1577673866761](/home/xiaozhi/Documents/notes/C++/assets/1577673866761.png)
+```c
+EPOLL_CTL_ADD
+    Register the target file descriptor fd on the epoll instance referred to by the file descriptor
+    epfd and associate the event event with the internal file linked to fd.
+
+EPOLL_CTL_MOD
+    Change the event event associated with the target file descriptor fd.
+
+EPOLL_CTL_DEL
+    Remove  (deregister) the target file descriptor fd from the epoll instance referred to by epfd.
+    The event is ignored and can be NULL (but see BUGS below).
+
+```
+
+
 
 分别用于增加,修改,删除在文件描述符上监听的事件.
 
@@ -1517,6 +1691,36 @@ LOG_ERROR( "cannot parse http header information!");
 
 
 ## cmake项目管理
+
+vscode安装cmake扩展后，使用quick stark创建cmake项目
+
+launch json
+
+```json
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [{
+        "name": "(gdb) Launch",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${command:cmake.launchTargetPath}",
+        "args": [],
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "externalConsole": false,
+        "MIMode": "gdb",
+        "setupCommands": [{
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+        }]
+    }]
+}
+```
 
 
 
