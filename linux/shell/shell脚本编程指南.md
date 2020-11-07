@@ -40,7 +40,7 @@ shell配置文件有/etc/profile,/etc/bashrc,~/bashrc, ~/bash_profile,/etc/profi
 
 ### 算数运算符
 
-![1565351774715](/home/xiaozhi/Documents/notes/linux/shell/assets/1565351774715.png)
+![1565351774715](assets/1565351774715.png)
 
 ### 一些运算指令
 
@@ -104,23 +104,23 @@ test <expression>
 
 #### 文件属性判断
 
-![1565352469561](/home/xiaozhi/Documents/notes/linux/shell/assets/1565352469561.png)
+![1565352469561](assets/1565352469561.png)
 
 #### 字符串判断
 
-![1565352516032](/home/xiaozhi/Documents/notes/linux/shell/assets/1565352516032.png)
+![1565352516032](assets/1565352516032.png)
 
 #### 整数判断
 
-![1565352540576](/home/xiaozhi/Documents/notes/linux/shell/assets/1565352540576.png)
+![1565352540576](assets/1565352540576.png)
 
 #### 逻辑运算符
 
-![1565352575285](/home/xiaozhi/Documents/notes/linux/shell/assets/1565352575285.png)
+![1565352575285](assets/1565352575285.png)
 
 #### 一些总结
 
-![1565352599555](/home/xiaozhi/Documents/notes/linux/shell/assets/1565352599555.png)
+![1565352599555](assets/1565352599555.png)
 
 #### 条件执行代码的简介方式
 
@@ -295,7 +295,7 @@ name=$(command)
 name=`command`
 ```
 
-![1565353464357](/home/xiaozhi/Documents/notes/linux/shell/assets/1565353464357.png)
+![1565353464357](assets/1565353464357.png)
 
 #### shell中的特殊变量
 
@@ -339,7 +339,7 @@ ${parameter//pattern/string}用string代替所有匹配的pattern
 
 #### 变量扩展
 
-![1565353887773](/home/xiaozhi/Documents/notes/linux/shell/assets/1565353887773.png)
+![1565353887773](assets/1565353887773.png)
 
 #### 数组
 
@@ -384,7 +384,7 @@ done
 
 另外 seq指令可以生成数字序列，使用方法如下
 
-![1565354374441](/home/xiaozhi/Documents/notes/linux/shell/assets/1565354374441.png)
+![1565354374441](assets/1565354374441.png)
 
 
 

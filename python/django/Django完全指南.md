@@ -23,13 +23,14 @@ pip install django==1.8.3
 django-admin startproject webStructure
 ```
 该操作会在当前目录下生成一个名为webStructure的文件夹，其目录结构如下
-![1564497252588](/home/xiaozhi/Documents/notes/python/django/assets/1564497252588.png)
+![1564497252588](assets/1564497252588.png)
 manager.py是django用来管理项目的工具程序，可以接收命令行参数，在项目内的所有命令都需要该文件的支持。二层目录webStructure下，urls.py文件定义了url与处理url的视图函数之间的映射关系，settings定义了项目配置信息，wsgi则是djangoweb应用的wsgi接口，该文件是web项目的启动入口。在执行以上操作后，我们只是有了一个大体的框架，没有加入任何的功能，进入webStructure目录，使用如下命令新建一个application
+
 ```
 django-admin startapp mainsite
 ```
 新建立了一个app，此时项目结构如下
-![1564497315811](/home/xiaozhi/Documents/notes/python/django/assets/1564497315811.png)
+![1564497315811](assets/1564497315811.png)
 views.py定义了一系列处理url请求的函数，称为视图，models.py定义了网站要使用的数据结构，这里需要说明一下，django使用ORM技术存取数据库信息，这样做的好处是我们无需关心数据库类型，无需关心连接数据库的语句是那些，只要我们按照一定的标准定义数据结构，django自动帮我们完成数据库的操作。mainsite下的migrations文件夹下存放的文件是网站migrate的历史记录，什么是migrate呢，我们定义了models数据结构，要将models文件中的数据结构与数据库关联起来，需要执行migrate操作。在setting文件中，加入我们刚才创建的app
 
 ```python
@@ -116,7 +117,7 @@ python manage.py createsuperuser
 
 输入用户名与密码创建超级账户
 
-![1564497708320](/home/xiaozhi/Documents/notes/python/django/assets/1564497708320.png)
+![1564497708320](assets/1564497708320.png)
 在admin文件中，注册我们刚在创建的Post类，让我们可以在web控制台操作该对象
 
 ```
@@ -133,11 +134,11 @@ admin.site.register(Post, PostAdmin)
 其中PostAdmin类为我们为了更改默认的显示方式而创建的，使用migrate命令将内容同步至数据库中，随后使用如下命令启动测试模式
 `python manage.py runserver 127.0.0.1:8000`
 访问根网页，我没没有为根目录设置任何内容，下面的结果只是告诉我们服务器运行成功了
-![1564497843703](/home/xiaozhi/Documents/notes/python/django/assets/1564497843703.png)
+![1564497843703](assets/1564497843703.png)
 访问管理页面`http://127.0.0.1:8000/admin`,看到如下图所示的登录窗体，使用我们刚才创建的管理员账户登录即可
-![1564497918730](/home/xiaozhi/Documents/notes/python/django/assets/1564497918730.png)
+![1564497918730](assets/1564497918730.png)
 登录以后看到我们刚才创建的Post类
-![1564497952087](/home/xiaozhi/Documents/notes/python/django/assets/1564497952087.png)
+![1564497952087](assets/1564497952087.png)
 可以在web控制台手动添加Post实例，这些更改都会被同步到数据库中。
 
 ### django中的视图
@@ -181,7 +182,7 @@ get_template是django提供的快捷函数，获取模板文件，其render函�
 
 在使用模板之前，需要配置django模板文件目录，当收到读取模板请求，django默认会去各个app目录下寻找templates目录，从该目录中找对应名称的模板文件，我们有多个app的时候，为了放置模板名称冲突，最好在模板目录下新建app名称目录，将模板文件放在该目录中，在此例子中，配置项目根目录下的templates目录为模板目录
 
-![1564498910880](/home/xiaozhi/Documents/notes/python/django/assets/1564498910880.png)
+![1564498910880](assets/1564498910880.png)
 
 #### 静态文件目录
 
@@ -195,7 +196,7 @@ STATICFILES_DIRS=[
 
 在静态目录static中建立相应文件夹，并放入静态资源文件，供模板使用
 
-![1564499861502](/home/xiaozhi/Documents/notes/python/django/assets/1564499861502.png)
+![1564499861502](assets/1564499861502.png)
 
 #### 编写模板文件
 
@@ -369,7 +370,7 @@ eval "$(pyenv virtualenv-init -)"
 
 重新登录shell激活pyenv工具，pyenv install 3.7.0会从源码镜像中下载3.7.0源码包并编译安装，可以先下载该文件，放入pyenv缓存中
 
-![1564660817806](/home/xiaozhi/Documents/notes/python/django/assets/1564660817806.png)
+![1564660817806](assets/1564660817806.png)
 
 如
 
@@ -399,11 +400,11 @@ python manage.py runserver
 
 关闭调试模式，放通主机访问
 
-![1564662314348](/home/xiaozhi/Documents/notes/python/django/assets/1564662314348.png)
+![1564662314348](assets/1564662314348.png)
 
 设置static_root
 
-![1564662415248](/home/xiaozhi/Documents/notes/python/django/assets/1564662415248.png)
+![1564662415248](assets/1564662415248.png)
 
 #### apache服务配置
 
@@ -415,7 +416,7 @@ mod_wsgi mod_proxy_uwsgi
 
 随后在httpd主配置文件中加载该模块
 
-![1564663332146](/home/xiaozhi/Documents/notes/python/django/assets/1564663332146.png)
+![1564663332146](assets/1564663332146.png)
 
 在conf.d目录中新建django网站配置
 
@@ -450,7 +451,7 @@ ServerName 192.168.56.103
 python manage.py collectstatic
 ```
 
-![1564663774847](/home/xiaozhi/Documents/notes/python/django/assets/1564663774847.png)
+![1564663774847](assets/1564663774847.png)
 
 ### 在centos中配置django + uwsgi + nginx
 
@@ -496,7 +497,7 @@ yum install nginx
 
 在nginx的默认配置文件中，加入如下选项
 
-![1566820584419](/home/xiaozhi/Documents/notes/python/django/assets/1566820584419.png)
+![1566820584419](assets/1566820584419.png)
 
 表示加载uwsgi参数，并将/的请求转发给uwsgi，nginx中也常采用upstream的方式。此时使用nginx可以访问uwsgi接口
 
@@ -521,7 +522,7 @@ DATABASES = {
 
 我们新建一个应用learn_models，随后新建应用people，要做的有将people添加到主配置文件中，配置好数据库，设置时区，语言。练习 基本的orm操作
 
-![1580039986896](/home/xiaozhi/Documents/notes/python/django/assets/1580039986896.png)
+![1580039986896](assets/1580039986896.png)
 
 随后我们在models中新建模型people
 
@@ -538,11 +539,11 @@ class Person(models.Model):
 
 db_table与db_column可以自定义表名与字段名
 
-![1580043209890](/home/xiaozhi/Documents/notes/python/django/assets/1580043209890.png)
+![1580043209890](assets/1580043209890.png)
 
 将模型同步到数据库中
 
-![1580040330159](/home/xiaozhi/Documents/notes/python/django/assets/1580040330159.png)
+![1580040330159](assets/1580040330159.png)
 
 进入django提供的shell环境中，测试api
 
@@ -561,7 +562,7 @@ python manager.py shell
 -   使用get_or_create方法
     Person.objects.get_or_create(name="xiaozhi", age=23)
 
-![1580040841851](/home/xiaozhi/Documents/notes/python/django/assets/1580040841851.png)
+![1580040841851](assets/1580040841851.png)
 
 ### 查询
 
@@ -569,29 +570,29 @@ python manager.py shell
 
 创建测试数据
 
-![1580041092156](/home/xiaozhi/Documents/notes/python/django/assets/1580041092156.png)
+![1580041092156](assets/1580041092156.png)
 
 查询所有对象
 
-![1580041182370](/home/xiaozhi/Documents/notes/python/django/assets/1580041182370.png)
+![1580041182370](assets/1580041182370.png)
 
 获取某一个对象
 
-![1580041210802](/home/xiaozhi/Documents/notes/python/django/assets/1580041210802.png)
+![1580041210802](assets/1580041210802.png)
 
 需要注意的是，当get得到的结果多余一个时，会抛出如下异常
 
-![1580041293052](/home/xiaozhi/Documents/notes/python/django/assets/1580041293052.png)
+![1580041293052](assets/1580041293052.png)
 
 当get查不到元素时，同样会抛出异常
 
-![1580042156218](/home/xiaozhi/Documents/notes/python/django/assets/1580042156218.png)
+![1580042156218](assets/1580042156218.png)
 
 在程序中处理时需要注意
 
 使用filter方法查询对象
 
-![1580041503255](/home/xiaozhi/Documents/notes/python/django/assets/1580041503255.png)
+![1580041503255](assets/1580041503255.png)
 
 #### queryset api
 
@@ -640,21 +641,21 @@ Person.objects.filter(name__contains="abc").delete() # 删除 名称中包含 "a
 
 ### 修改
 
-![1580042636622](/home/xiaozhi/Documents/notes/python/django/assets/1580042636622.png)
+![1580042636622](assets/1580042636622.png)
 
 最后queryset是可以迭代操作的
 
 支持链式查询
 
-![1580042686934](/home/xiaozhi/Documents/notes/python/django/assets/1580042686934.png)
+![1580042686934](assets/1580042686934.png)
 
 ### 排序
 
-![1580042720122](/home/xiaozhi/Documents/notes/python/django/assets/1580042720122.png)
+![1580042720122](assets/1580042720122.png)
 
 当在views执行长时间操作导致myslq连接断开，进行数据操作会引发如下异常
 
-![1580043487906](/home/xiaozhi/Documents/notes/python/django/assets/1580043487906.png)
+![1580043487906](assets/1580043487906.png)
 
 出现这种情况是由于mysql数据库连接时长限制导致的，我们可以在执行完耗时操作以后先关闭旧连接
 
@@ -691,13 +692,13 @@ path('add/<int:a>/<int:b>/', calc_views.add2, name='add2')
 
 前边是int代表参数的类型，后面代表参数的名称
 
-![1580046565410](/home/xiaozhi/Documents/notes/python/django/assets/1580046565410.png)
+![1580046565410](assets/1580046565410.png)
 
 当应用比较小时，url与网址的匹配可以放在项目主配置文件相同的urls.py中
 
 就像下图所示
 
-![1580045218853](/home/xiaozhi/Documents/notes/python/django/assets/1580045218853.png)
+![1580045218853](assets/1580045218853.png)
 
 ### 结构化url
 
@@ -705,7 +706,7 @@ path('add/<int:a>/<int:b>/', calc_views.add2, name='add2')
 
 比如在mainsite应用中
 
-![1580045368674](/home/xiaozhi/Documents/notes/python/django/assets/1580045368674.png)
+![1580045368674](assets/1580045368674.png)
 
 要声明应用名称
 
@@ -715,7 +716,7 @@ app_names = 'mainsite'
 
 在主urls文件中
 
-![1580045397777](/home/xiaozhi/Documents/notes/python/django/assets/1580045397777.png)
+![1580045397777](assets/1580045397777.png)
 
 ### 通过url传递参数
 
@@ -798,7 +799,7 @@ pip install djangorestframework djangorestframework-jwt
 
 在app中注册
 
-![1585400809223](/home/xiaozhi/Documents/notes/python/django/assets/1585400809223.png)
+![1585400809223](assets/1585400809223.png)
 
 在setting中配置restframework的默认值，主要是认证与权限
 
@@ -1192,7 +1193,7 @@ path('api-token-verify/', verify_jwt_token),
 
 views的认证
 
-![1585402592759](/home/xiaozhi/Documents/notes/python/django/assets/1585402592759.png)
+![1585402592759](assets/1585402592759.png)
 
 ###### 配置jwt认证失败与成功返回的内容
 
@@ -1246,7 +1247,7 @@ rest_framework_jwt/views.py
 jwt_response_payload_error_handler = api_settings.JWT_RESPONSE_PAYLOAD_ERROR_HANDLER
 ```
 
-![1585403096975](/home/xiaozhi/Documents/notes/python/django/assets/1585403096975.png)
+![1585403096975](assets/1585403096975.png)
 
 71行
 
@@ -1255,7 +1256,7 @@ jwt_response_payload_error_handler = api_settings.JWT_RESPONSE_PAYLOAD_ERROR_HAN
         return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
 ```
 
-![1585403178623](/home/xiaozhi/Documents/notes/python/django/assets/1585403178623.png)
+![1585403178623](assets/1585403178623.png)
 
 在setting中声明
 
