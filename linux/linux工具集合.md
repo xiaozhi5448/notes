@@ -18,7 +18,7 @@
 cmatrix
 ```
 
-![1576900516452](/home/xiaozhi/Documents/notes/linux/assets/1576900516452.png)
+![1576900516452](assets/1576900516452.png)
 
 #### xeyes眼睛
 
@@ -26,7 +26,7 @@ cmatrix
 xeyes
 ```
 
-![1576900579228](/home/xiaozhi/Documents/notes/linux/assets/1576900579228.png)
+![1576900579228](assets/1576900579228.png)
 
 #### toilet艺术字
 
@@ -34,7 +34,7 @@ xeyes
 toilet
 ```
 
-![1576900648288](/home/xiaozhi/Documents/notes/linux/assets/1576900648288.png)
+![1576900648288](assets/1576900648288.png)
 
 #### oneko追随指针的小猫
 
@@ -42,7 +42,7 @@ toilet
 oneko
 ```
 
-![1576900713551](/home/xiaozhi/Documents/notes/linux/assets/1576900713551.png)
+![1576900713551](assets/1576900713551.png)
 
 #### sl跑火车
 
@@ -50,17 +50,17 @@ oneko
 sl
 ```
 
-![1576900745910](/home/xiaozhi/Documents/notes/linux/assets/1576900745910.png)
+![1576900745910](assets/1576900745910.png)
 
 #### cowsay,lolcat,fortune 
 
 cowsay可以指定图案显示指定文字
 
-![1576900857258](/home/xiaozhi/Documents/notes/linux/assets/1576900857258.png)
+![1576900857258](assets/1576900857258.png)
 
 还可以指定动物
 
-![1576900881534](/home/xiaozhi/Documents/notes/linux/assets/1576900881534.png)
+![1576900881534](assets/1576900881534.png)
 
 ![1576900923086](/home/xiaozhi/Documents/notes/linux/assets/1576900923086.png)
 
@@ -70,8 +70,8 @@ fortune显示名人名言,lolcat可以使输出结果变为彩色
 fortune | cowsay -f dragon | lolcat
 ```
 
-![1576901011260](/home/xiaozhi/Documents/notes/linux/assets/1576901011260.png)
+![1576901011260](assets/1576901011260.png)
 
 #### pv使输出模拟打字机
 
-![1576901011260](/home/xiaozhi/Documents/notes/linux/assets/pv.gif)
+![1576901011260](assets/pv.gif)
