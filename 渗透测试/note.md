@@ -90,6 +90,44 @@ site: github.com userId Password
 
 #### http认证爆破
 
+#### svn源码泄露
+
+工具：
+
+```shell
+https://github.com/kost/dvcs-ripper.git
+```
+
+
+
+#### git目录泄露
+
+git目录中包含了源码信息，泄露会导致源代码泄露，从而可能泄露敏感信息
+
+使用git目录重建源码目录的工具
+
+```
+https://github.com/WangYihang/GitHacker.git
+```
+
+使用时
+
+```shell
+python GitHacker.py challenge-080728e66d838966.sandbox.ctfhub.com:10080/.git/
+```
+
+获取到的git repo如图
+
+![image-20201111152917236](note.assets/image-20201111152917236.png)
+
+
+
+在该目录下可以查看源码，查看log等
+
+
+
+#### HG 源码泄露
+
 
 
 ### ip地址
