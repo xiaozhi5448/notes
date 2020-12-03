@@ -534,3 +534,8 @@ curl cip.cc
 
 ![image-20201111102855843](note.assets/image-20201111102855843.png)
 
+## 安全工具箱
+
+渗透系统额外工具
+
+- Discover Scripts
