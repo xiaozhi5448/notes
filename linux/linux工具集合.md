@@ -62,7 +62,7 @@ cowsay可以指定图案显示指定文字
 
 ![1576900881534](assets/1576900881534.png)
 
-![1576900923086](/home/xiaozhi/Documents/notes/linux/assets/1576900923086.png)
+![1576900923086](assets/1576900923086.png)
 
 fortune显示名人名言,lolcat可以使输出结果变为彩色
 

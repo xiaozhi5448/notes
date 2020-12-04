@@ -48,7 +48,7 @@ a,b = b, a
 
 ### 使用assert检查代码
 
-![1579599699678](/home/xiaozhi/Documents/notes/assets/1579599699678.png)
+![1579599699678](assets/1579599699678.png)
 
 在python运行时指定-O参数可以禁用所有断言。
 
