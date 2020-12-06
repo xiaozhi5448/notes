@@ -1,5 +1,23 @@
 # liunx 操作系统
 
+## fresh install
+
+### 开发环境
+
+#### python
+
+#### java
+
+#### vscode
+
+#### jnetbrains
+
+#### zsh
+
+#### 科学上网
+
+
+
 ## shell脚本编程指南
 
 
@@ -68,7 +86,9 @@ nc -l 8888 #pc1
 nc 192.168.56.102 8888 -e /bin/bash # pc2
 ```
 
-### socat网络数据重定向
+### 端口转发
+
+#### socat网络数据重定向
 
 socat也是用于在两个socket通信端点建立连接的工具，基本用法如下
 
@@ -88,7 +108,7 @@ socat [options] <address> <address>
 
 如 fork，reuseaddr，stdin，stdout，ctty 等
 
-#### 应用
+##### 应用
 
 读取文件
 
@@ -123,17 +143,17 @@ socat -d -d TCP4-LISTEN:8000,bind=192.168.56.101,reuseaddr,fork TCP4:192.168.56.
 net.ipv4.ip_forward=1
 ```
 
-### ssh端口转发
+#### ssh端口转发
 
-#### 本地端口转发
+##### 本地端口转发
 
-将本地端口通过ssh连接，映射到远程主机的另一端口，访问本地映射端口，数据会被转发到远程映射端口。用于将远程服务转发到本地
+将本地端口通过ssh连接，映射到远程主机的另一端口，访问本地映射端口，数据会被转发到远程映射端口。适用于将远程服务映射到本地，使其他机器访问本地某一地址时，访问到远程主机上的某一服务。
 
 ```shell
 ssh -L local_hostname:local_port:remote_host:remote_port user@hostname
 ```
 
-将本地local_hostname的local_port数据通过主机user@hostname转发到remote_host：remote_port
+将发往本地local_hostname的local_port数据通过主机user@hostname转发到remote_host：remote_port
 
 要求remote_host与主机user@hostname可以连通。比如主机A1，A2是本地主机，B1，B2是远程主机
 
@@ -167,19 +187,17 @@ test
 lskdfja
 ```
 
-实现了将远程主机端口映射到本地的功能
+实现了将远程服务映射到本地的功能
 
+##### 远程端口转发
 
-
-#### 远程端口转发
-
-将远程端口，通过ssh连接，映射到本地某一端口，从而实现其他计算机访问远程服务器的远程端口时，请求会被转发到本地,用于将本地服务映射到远程
+将远程端口，通过ssh连接，将远程主机上的某一服务映射到本地某一端口，从而实现其他计算机访问远程服务器的远程端口时，请求会被转发到本地,用于将本地服务映射到远程
 
 ```shell
 ssh -R remote_server:remote_port:dest_server:dest_port user@hostname
 ```
 
-remote_server是暴露出去的计算机，dest_server是真正运行服务的计算机，remote_server与hostname相同，使发送到remote——server的请求都被转发到dest_server
+remote_server是相对于ssh server的服务地址，dest_server相对于本地真正运行服务的地址，使发送到remote—server的请求都被转发到dest_server
 
 sshd配置文件需要允许端口转发
 
@@ -203,13 +221,27 @@ ssh -R 0.0.0.0:3389:localhost:8888 ubuntu@49.232.212.180
 >-> # nc 49.232.212.180 3389
 >ls
 
-#### 动态端口转发
+##### 动态端口转发
 
-将本地端口接收到的请求通过ssh发送到远程主机，指定本地端口，并不指定远程端口，收到的请求信息会原封不动的发送到目标主机，由目标主机处理该请求，相当于一个socks代理
+将本地端口接收到的请求通过ssh发送到远程主机，指定本地端口，并不指定远程端口，收到的请求信息会原封不动的发送到目标主机，由目标主机发送该请求，相当于一个代理服务器
 
 ```
 ssh -D localhost:localport user@hostname
 ```
+
+代理本地8888请求
+
+![image-20201206164348148](accumulate.assets/image-20201206164348148.png)
+
+代理前公网ip为
+
+![image-20201206164415071](accumulate.assets/image-20201206164415071.png)
+
+代理后公网ip为
+
+![image-20201206164428279](accumulate.assets/image-20201206164428279.png)
+
+ip数据来自cip.cc
 
 ### iptables
 
@@ -285,7 +317,7 @@ tcpdump -i eth1 '((tcp) and ((dst net 192.168) and (not dst host 192.168.1.200))
 
 抓ack syn
 
-```
+```shell
 tcpdump -i eth1 'tcp[tcpflags] & tcp-syn != 0 and tcp[tcpflags] & tcp-ack != 0'
 ```
 
@@ -376,7 +408,13 @@ xargs可以处理输入数据，经常用于命令行参数的格式化，可以
  -I “string” 使用string替换每个输入数据，string可供后来命令使用
  -d “X” 重定义定界符 “X”
 
+有用的选项-I，可以用在，某些指令不能操作输入流，只能通过参数给出的情况。比如想找出某些进程，将符合条件的进程通过kill强制退出。将进程id直接通过管道发送给kill发现操作不了
 
+![image-20201206165726167](accumulate.assets/image-20201206165726167.png)
+
+使用xargs
+
+![image-20201206165740245](accumulate.assets/image-20201206165740245.png)
 
 ## 有趣的工具
 
