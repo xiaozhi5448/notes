@@ -323,7 +323,7 @@ tcpdump -i eth1 'tcp[tcpflags] & tcp-syn != 0 and tcp[tcpflags] & tcp-ack != 0'
 
 ## 文本处理
 
-### find
+### find查找文件
 
 文件查找
 
@@ -400,7 +400,7 @@ find /var/log -size 0
 find /var/log -group root
 ```
 
-### xargs
+### xargs处理参数
 
 xargs可以处理输入数据，经常用于命令行参数的格式化，可以将多行数据变为单行，单行数据变为多行，处理数据以供命令执行
 
@@ -415,6 +415,411 @@ xargs可以处理输入数据，经常用于命令行参数的格式化，可以
 使用xargs
 
 ![image-20201206165740245](accumulate.assets/image-20201206165740245.png)
+
+### sort排序
+
+### uniq消除重复行
+
+>With no options, matching lines are merged to the first occurrence.
+>
+>Mandatory arguments to long options are mandatory for short options too.
+>  -c, --count           prefix lines by the number of occurrences
+>  -d, --repeated        only print duplicate lines, one for each group
+>  -D                    print all duplicate lines
+>      --all-repeated[=METHOD]  like -D, but allow separating groups
+>                                 with an empty line;
+>                                 METHOD={none(default),prepend,separate}
+>  -f, --skip-fields=N   avoid comparing the first N fields
+>      --group[=METHOD]  show all items, separating groups with an empty line;
+>                          METHOD={separate(default),prepend,append,both}
+>  -i, --ignore-case     ignore differences in case when comparing
+>  -s, --skip-chars=N    avoid comparing the first N characters
+>  -u, --unique          only print unique lines
+>  -z, --zero-terminated     line delimiter is NUL, not newline
+>  -w, --check-chars=N   compare no more than N characters in lines
+>      --help     display this help and exit
+>      --version  output version information and exit
+>
+>A field is a run of blanks (usually spaces and/or TABs), then non-blank
+>characters.  Fields are skipped before chars.
+
+### cut分割行
+
+
+
+### paste组合行
+
+>With no FILE, or when FILE is -, read standard input.
+>
+>Mandatory arguments to long options are mandatory for short options too.
+>  -d, --delimiters=LIST   reuse characters from LIST instead of TABs
+>  -s, --serial            paste one file at a time instead of in parallel
+>  -z, --zero-terminated    line delimiter is NUL, not newline
+>      --help     display this help and exit
+>      --version  output version information and exit
+
+### wc统计文件
+
+>With no FILE, or when FILE is -, read standard input.
+>
+>The options below may be used to select which counts are printed, always in
+>the following order: newline, word, character, byte, maximum line length.
+>  -c, --bytes            print the byte counts
+>  -m, --chars            print the character counts
+>  -l, --lines            print the newline counts
+>      --files0-from=F    read input from the files specified by
+>                           NUL-terminated names in file F;
+>                           If F is - then read names from standard input
+>  -L, --max-line-length  print the maximum display width
+>  -w, --words            print the word counts
+>      --help     display this help and exit
+>      --version  output version information and exit
+
+### awk文本处理
+
+awk用于在命令行下对文本数据进行扫描和处理。逐行扫描文件，从第一行到最后一行，寻找匹配特定模式的行，在这些行上进行用户操作
+
+#### 指令模式
+
+pattern {action}
+ begin,end模式分别代表处理第一行之前和处理最后一行之后进行的操作
+
+#### 常见参数
+
+-F fs 指定域分隔符fs
+ -v var=val 处理之前设置一个变量var
+ -f file 从文本中读取awk指令
+
+#### 内置变量
+
+- FILENAME   当前处理的文件名称
+-  FNR        当前输入文档的当前记录编号
+- NR         输入流的当前记录编号
+-  FS         字段分隔符
+-  OFS        输出字段分隔符
+-  ORS        输出记录分隔符
+-  RS         输入记录分隔符c
+
+#### 操作符
+
+<,>,<=,>=,!~
+ !~表示反向匹配
+
+内置函数
+
+gsub（r，s）    在整个$0中用s替换r
+ index（s，t）    返回s中第一个t的位置
+ length（s）     返回s的长度
+ match（s，r）   测试s是否包含匹配r的字符串
+ split（s，a，fs） 在fs上将s分解为数组a
+ substr（s，p）   返回s从p开始的后缀部分
+ printf          格式化输出 
+
+#### 实例
+
+##### 模式匹配
+
+查找第一列匹配root，第八列等于S的行
+
+```shell
+awk '$1 ~ /root/ && $8=="S"'  /tmp/ps.txt
+```
+
+![image-20201207171122495](accumulate.assets/image-20201207171122495.png)
+
+匹配包含ubuntu的行
+
+```shell
+awk '/ubuntu/' /tmp/ps.txt
+```
+
+![image-20201207171246831](accumulate.assets/image-20201207171246831.png)
+
+匹配或
+
+```shell
+awk '$8 ~ /SN|Ss/' /tmp/ps.txt
+```
+
+![image-20201207171451353](accumulate.assets/image-20201207171451353.png)
+
+取反
+
+```shell
+awk '  $8  !~ /SN|Ss/' /tmp/ps.txt
+```
+
+![image-20201207171552830](accumulate.assets/image-20201207171552830.png)
+
+##### 拆分文件
+
+按照用户名将不同进程信息输出到文件
+
+```shell
+ awk 'NR!=1{print > $1}' ps.txt
+```
+
+![image-20201207171810472](accumulate.assets/image-20201207171810472.png)
+
+##### 条件判断
+
+split.awk
+
+```shell
+#!/usr/bin/awk
+$NR!=1
+{
+        if($1 ~ /root/){
+                print > "root.txt";
+        }else if($1 ~ /ubuntu/){
+                print > "ubuntu.txt";
+        }else{
+                print > "other.txt";
+        }
+}
+bash: awk -f split.awk ps.txt
+```
+
+![image-20201207172746819](accumulate.assets/image-20201207172746819.png)
+
+##### 统计信息
+
+当前目录下文件大小综合
+
+```shell
+ls -l |awk '{sum+=$5;}END{print sum;}'
+```
+
+![image-20201207173229315](accumulate.assets/image-20201207173229315.png)
+
+长度大于90的行
+
+```shell
+awk 'length>90' ps.txt
+```
+
+查看当前连接ip地址
+
+```shell
+netstat -ntu |awk 'NR!=1{print $5;}' | cut -d: -f 1 | sort -n | uniq
+```
+
+
+
+### grep
+
+grep是一种文本搜索工具，以行为处理单位，搜索匹配的文本
+
+-c      计算次数
+ -I      忽略大小写
+ -n     输出行号
+ -v      反向选择
+ -r      递归查找
+
+
+
+[]中匹配一个字符，^字符加在[]里表示反向选择
+ ^匹配行首，$匹配行尾
+ .代表任意字符
+ *代表重复前一个字符0次或任意多次
+ +代表重复前一个字符一次或多次
+ ?代表重复一次或0次
+
+egrep可以使用扩展正则表达式，相当于grep -e
+
+-A n 表示after n，输出后n行，B n表示fefore，输出前n行
+
+-C n 表示context，输出上下文n行
+
+![image-20201207202845728](accumulate.assets/image-20201207202845728.png)
+
+### sed
+
+address{
+ command1
+ command2
+ }
+ a append 追加
+ d delete 删除
+ s substitution 替换
+
+#### 实例
+
+第二行后添加文本
+
+```shell
+sed '2a test' repeat.txt
+```
+
+第五行前添加文本
+
+```shell
+sed '5i test' repeat.txt
+```
+
+将所有test替换为test2
+
+```shell
+sed 's/test/test2/g' repeat.txt
+```
+
+匹配所有包含test的行，在其后添加文本
+
+```shell
+sed '/test/a test2' repeat.txt
+```
+
+删除所有以test开头的行
+
+```shell
+sed '/test/d' repeat.txt
+```
+
+删除空白行
+
+```shell
+sed '/^$/d' repeat.txt
+```
+
+匹配某一行
+
+```shell
+sed '3a test' repeat.txt
+```
+
+从某行开始，每隔2行选择一行
+
+```shell
+sed '1~2 a test' repeat.txt
+```
+
+/regex/匹配正则表达式
+
+addr,+n表示匹配该行后面的n行内容
+
+```shell
+sed '3,+2d' repeat.txt
+```
+
+
+
+## 常见服务管理
+
+### mysql
+
+mysql是典型的关系型数据库管理系统，数据库中包含多张数据表，数据以记录的形式存在于数据表中，一条记录中包含若干字段，每个字段都有特定的数据类型。不同的表可能有一定的联系。从数据库中查询的语言被称为sql，数据库管理系统通过sql从数据库中检索数据。sql语法此处不再说明。mariadb是mysql的一个开源分支，自mysql闭源之后，经过开源社区的努力，mariadb也成为了一个功能十分完善可以替代mysql的数据库软件包，操作基本类似
+
+安装mariadb使用linux包管理工具即可。配置文件位于
+
+![image-20201207204125609](accumulate.assets/image-20201207204125609.png)
+
+系统会为我们创建mysql用户
+
+![image-20201207204151338](accumulate.assets/image-20201207204151338.png)
+
+使用mysql_install_db初始化数据库，在linux环境下，使用该命令初始化数据库时，会创建空白数据库test，同时在mysql数据库中创建user表。
+
+![image-20201207204213689](accumulate.assets/image-20201207204213689.png)
+
+mysql.user表中root用户为默认管理员用户，未设置密码，匿名账户同样没有密码，可能导致安全问题
+使用mysql_secure_installation设置初始选项，设置是否允许root远程登陆，是否删除test数据库，设置root密码等选项。设置root密码后，启动mariadb，可以登陆mysql服务
+`mysql -h 127.0.0.1 -u root -p`随后键入密码即可登陆
+如果想更改启动参数，可以修改my.cnf文件，添加需要的选项
+
+#### mysqladmin
+
+创建数据库
+
+```shell
+mysqladmin create testdb -p
+```
+
+删除数据库
+
+```shell
+mysqladmin drop testdb -p
+```
+
+![image-20201207204709798](accumulate.assets/image-20201207204709798.png)
+
+
+
+#### mysqldump
+
+备份所有数据库
+
+```shell
+mysqldump -u root -p --all-database > all_data.bak
+```
+
+备份某个数据库
+
+```shell
+mysqldump -u root -p --database mysql > mysql.bak
+```
+
+备份mysql中的user表
+
+```shell
+mysqldump -u root -p mysql user > user.bak
+```
+
+还原所有数据库
+
+```shell
+mysqldump -u root -p < all_data.bak
+```
+
+还原mysql数据库
+
+```shell
+mysqldump -u root -p mysql < mysql.bak
+```
+
+还原某个表
+
+```shell
+mysqldump -u root -p mysql < user.bak
+```
+
+
+
+#### 权限
+
+mysql数据库安全包括密码安全性、访问控制安全、数据安全（配置相关文件）。mysql的用户账户密码权限信息保存在mysql数据库中的user表中，可以使用mysqladmin或sql语句更改、添加、删除user表中记录达到账户管理功能。以下多个实例中看账户管理设置
+使用grant命令创建用户并授权
+`grant all on testdb.* to 'xiaozhi'@'localhost' identified by 'password';`
+创建admin用户，授予管理数据库权限，无密码本机登陆
+`grant reload,process on *.* to 'admin'@'localhost';`
+创建inspect用户，授予testdb数据库中所有数据表的权限，该用户可以从任何主机查询数据
+`grant all on testdb.* to 'inspect'@'%' identified by 'password';`
+
+使用show grants查看用户信息
+
+drop user .....删除用户
+
+#### 日志
+
+错误日志，配置文件中默认开启了错误日志，并且给出了错误日志文件路径，当mysql进程出错时，错误日志会记录错误信息
+
+![image-20201207205356267](accumulate.assets/image-20201207205356267.png)
+
+在mysql中使用如下选项查看mysql日志文件是否开启和日志文件位置
+
+![image-20201207205413691](accumulate.assets/image-20201207205413691.png)
+
+查询日志中记录了数据库每条查询信息的sql语句及其响应，有助于我们做sql注入分析，性能调试。一般线上应用不开启，因为随着查询数量增加，日志文件增加十分迅速，给服务器带来负担
+查看mysql查询日志配置
+
+![image-20201207205438914](accumulate.assets/image-20201207205438914.png)
+
+临时开启查询日志，当重启mysql时，该设置失效
+
+![image-20201207205456167](accumulate.assets/image-20201207205456167.png)
+
+当查询指令执行之间超过一定时间时，记录该查询信息，称为慢查询日志
+
+![image-20201207205527113](accumulate.assets/image-20201207205527113.png)
 
 ## 有趣的工具
 
