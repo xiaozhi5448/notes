@@ -1374,6 +1374,8 @@ axios可以在js中方便的发送http请求，github上的文档非常清晰，
  }
 ```
 
+#### 认证
+
 如果后端接口需要token认证的话，axios需要配置请求头，也可以采用默认值，将vuex实例的token映射到app中，然后监控该token变化时，设置axios请求的token默认值
 
 ```js
@@ -1385,6 +1387,27 @@ watch: {
 ```
 
 这样解决了axios的认证。
+
+#### 跨域
+
+```js
+ //axios-init.js
+ import axios from 'axios';
+
+ axios.defaults.baseURL = 'http://localhost:8000'; // 配置axios请求的地址
+ axios.defaults.headers.post['Content-Type'] = 'application/json; charset=utf-8';
+ axios.defaults.crossDomain = true;
+ axios.defaults.withCredentials = true;
+export default axios
+```
+
+在主js文件中
+
+```js
+import axios from './axios-init'
+```
+
+#### 示例
 
 一个使用get的例子
 
@@ -1485,7 +1508,106 @@ vue父子组件事件渲染顺序
 
 ## 环境配置指南
 
-### mysql的docker环境配置
+### docker环境配置
+
+目录结构如下
+
+![image-20201207211814914](Django%E5%AE%8C%E5%85%A8%E6%8C%87%E5%8D%97.assets/image-20201207211814914.png)
+
+mysql在容器中运行时，我们最好将数据存储目录保存下来，将其规定为数据卷
+
+在mysql容器的Dockfile中定义数据卷
+
+```dockerfile
+FROM mariadb:10.5.6-focal
+VOLUME [ "/var/lib/mysql" ]
+COPY init.sql /docker-entrypoint-initdb.d/
+```
+
+对我们的python服务，其Dockerfile如下
+
+```dockerfile
+FROM python:3.6.11-stretch
+COPY ./services /services
+WORKDIR /services
+RUN pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    && chmod +x /services/entrypoint.sh \
+    && apt update \
+    && apt install netcat -y \
+    && apt-get clean
+EXPOSE 8000
+CMD ["/services/entrypoint.sh"]
+```
+
+entry point内容是启动容器要执行的指令
+
+```sh
+#!/bin/bash
+
+# waiting for db service
+
+while ! nc db 3306; do
+  >&2 echo "mysql is unavailable - sleeping"
+  sleep 1
+done
+>&2 echo "Postgres is up - executing command"
+
+# Apply database migrations
+echo "Apply database migrations"
+python manage.py makemigrations
+python manage.py migrate
+
+# Start server
+echo "Starting server"
+uwsgi --ini uwsgi.ini --http-socket :8000 --enable-threads
+```
+
+总的docker-compose.yml
+
+```yml
+version: "3"
+services:
+  web:
+    build: web
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    networks:
+      - cmd-detect-backend
+  db:
+    # image: "mariadb:10.5.6-focal"
+    build: mysql
+    restart: always
+    privileged: true
+    volumes:
+      - ./mysql/data/:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "wodemima"
+    networks:
+      - cmd-detect-backend
+  phpmyadmin:
+    image: "phpmyadmin/phpmyadmin:5"
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: "db"
+      MYSQL_ROOT_PASSWORD: "wodemima"
+      PMA_ARBITRARY: 1
+    depends_on:
+      - db
+    networks:
+      - cmd-detect-backend
+
+networks:
+  cmd-detect-backend:
+    driver: bridge
+```
+
+
 
 ## errors解决方案
 

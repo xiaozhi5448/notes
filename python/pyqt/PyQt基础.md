@@ -2,6 +2,70 @@
 
 ## 实例
 
+### HelloWorld
+
+使用designer绘制一个对话框，保存为ui文件后，使用pyuic将其转换为代码
+
+```python
+# Form implementation generated from reading ui file 'test.ui'
+#
+# Created by: PyQt5 UI code generator 5.11.3
+#
+# WARNING! All changes made in this file will be lost!
+
+from PyQt5 import QtCore, QtGui, QtWidgets
+
+class Ui_Dialog(object):
+    def setupUi(self, Dialog):
+        Dialog.setObjectName("Dialog")
+        Dialog.resize(400, 283)
+        self.buttonBox = QtWidgets.QDialogButtonBox(Dialog)
+        self.buttonBox.setGeometry(QtCore.QRect(30, 240, 341, 32))
+        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
+        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Ok)
+        self.buttonBox.setObjectName("buttonBox")
+
+        self.retranslateUi(Dialog)
+        self.buttonBox.accepted.connect(Dialog.accept)
+        self.buttonBox.rejected.connect(Dialog.reject)
+        QtCore.QMetaObject.connectSlotsByName(Dialog)
+
+    def retranslateUi(self, Dialog):
+        _translate = QtCore.QCoreApplication.translate
+        Dialog.setWindowTitle(_translate("Dialog", "Dialog"))
+
+```
+
+新建类，继承该类，
+
+```python
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QFileDialog, QLabel, QDialog
+from PyQt5.QtCore import QStringListModel, QThread, pyqtSignal, QCoreApplication
+import sys
+from ui_Dialog import Ui_Dialog
+
+
+class MainWindow(QDialog, Ui_Dialog):
+    def __init__(self, parent=None):
+        super(MainWindow, self).__init__(parent)
+        self.setupUi(self)
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    myWin = MainWindow()
+    myWin.setFixedSize(myWin.width(), myWin.height())
+
+    myWin.show()
+    sys.exit(app.exec_())
+```
+
+运行可看到对话框
+
+![image-20201208170654536](PyQt%E5%9F%BA%E7%A1%80.assets/image-20201208170654536.png)
+
+
+
 ### 源码
 
 先从一个例子开始看起，一个监听网络接口过滤数据包信息的例子。
@@ -90,6 +154,18 @@ if __name__ == '__main__':
 ```
 
 这个文件用于解析网络数据包
+
+在qtdesigner中绘制该界面
+
+![image-20201208163746113](PyQt%E5%9F%BA%E7%A1%80.assets/image-20201208163746113.png)
+
+保存为.ui文件，使用pyuic5将ui文件生成python code
+
+```shell
+pyuic5 ui_MainWindow.ui -o MainWindow.py
+```
+
+在我们要写的主文件中继承MainWindow中的类
 
 DBconn（封装数据库连接）
 

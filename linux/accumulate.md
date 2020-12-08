@@ -705,6 +705,12 @@ sed '3,+2d' repeat.txt
 
 ## 常见服务管理
 
+### nfs
+
+
+
+
+
 ### mysql
 
 mysql是典型的关系型数据库管理系统，数据库中包含多张数据表，数据以记录的形式存在于数据表中，一条记录中包含若干字段，每个字段都有特定的数据类型。不同的表可能有一定的联系。从数据库中查询的语言被称为sql，数据库管理系统通过sql从数据库中检索数据。sql语法此处不再说明。mariadb是mysql的一个开源分支，自mysql闭源之后，经过开源社区的努力，mariadb也成为了一个功能十分完善可以替代mysql的数据库软件包，操作基本类似
@@ -820,6 +826,171 @@ drop user .....删除用户
 当查询指令执行之间超过一定时间时，记录该查询信息，称为慢查询日志
 
 ![image-20201207205527113](accumulate.assets/image-20201207205527113.png)
+
+## 远程服务管理
+
+### supervisord
+
+Supervisor是用Python开发的一套通用的进程管理程序，能将一个普通的命令行进程变为后台daemon，并监控进程状态，异常退出时能自动重启。它是通过fork/exec的方式把这些被管理的进程当作supervisor的子进程来启动，这样只要在supervisor的配置文件中，把要管理的进程的可执行文件的路径写进去即可。也实现当子进程挂掉的时候，父进程可以准确获取子进程挂掉的信息的，可以选择是否自己启动和报警。supervisor还提供了一个功能，可以为supervisord或者每个子进程，设置一个非root的user，这个user就可以管理它对应的进程。
+
+#### 安装
+
+使用pip或包管理工具，包名为supervisor
+
+```shell
+pip install supervisor
+```
+
+配置文件位于
+
+/etc/supervisor
+
+![image-20201208160453361](accumulate.assets/image-20201208160453361.png)
+
+#### 配置
+
+在supervisord.conf最后包含了其他目录中的配置文件，可以将各个服务放入不同的配置文件中，分别管理
+
+配置示例
+
+```ini
+#项目名
+[program:blog]
+#脚本目录
+directory=/opt/bin
+#脚本执行命令
+command=/usr/bin/python /opt/bin/test.py
+
+#supervisor启动的时候是否随着同时启动，默认True
+autostart=true
+#当程序exit的时候，这个program不会自动重启,默认unexpected，设置子进程挂掉后自动重启的情况，有三个选项，false,unexpected和true。如果为false的时候，无论什么情况下，都不会被重新启动，如果为unexpected，只有当进程的退出码不在下面的exitcodes里面定义的
+autorestart=false
+#这个选项是子进程启动多少秒之后，此时状态如果是running，则我们认为启动成功了。默认值为1
+startsecs=1
+
+#脚本运行的用户身份 
+user = test
+
+#日志输出 
+stderr_logfile=/tmp/blog_stderr.log 
+stdout_logfile=/tmp/blog_stdout.log 
+#把stderr重定向到stdout，默认 false
+redirect_stderr = true
+#stdout日志文件大小，默认 50MB
+stdout_logfile_maxbytes = 20MB
+#stdout日志文件备份数
+stdout_logfile_backups = 20
+```
+
+
+
+#### 配置python服务
+
+有时候我们会碰到线上python服务使用虚拟环境的情况，我们在编写command选项的时候，python解释器描述为虚拟环境中python解释器的完全路径就可以，就可以使用到对应的虚拟环境。
+
+#### 指令
+
+启动supervisord
+
+```shell
+supervisord -c /etc/supervisor/supervisord.conf
+# 或
+systemctl start supervisord
+```
+
+supervisorctl可以进入supervisor控制台，查看，管理进程
+
+### screen
+
+Screen是一个可以在多个进程之间多路复用一个物理终端的全屏窗口管理器。Screen中有会话的概念，用户可以在一个会话中创建多个screen窗口，在每一个screen窗口中就像操作一个真实的telnet/SSH连接窗口那样。
+
+#### 基本功能
+
+##### **会话恢复**
+
+只要Screen本身没有终止，在其内部运行的会话都可以恢复。这一点对于远程登录的用户特别有用——即使网络连接中断，用户也不会失去对已经打开的命令行会话的控制。只要再次登录到主机上执行**screen -r**就可以恢复会话的运行。同样在暂时离开的时候，也可以执行分离命令**detach**，在保证里面的程序正常运行的情况下让Screen挂起（切换到后台）。这一点和图形界面下的VNC很相似。
+
+##### **多窗口**
+
+在Screen环境下，所有的会话都独立的运行，并拥有各自的编号、输入、输出和窗口缓存。用户可以通过快捷键在不同的窗口下切换，并可以自由的重定向各个窗口的输入和输出。Screen实现了基本的文本操作，如复制粘贴等；还提供了类似滚动条的功能，可以查看窗口状况的历史记录。窗口还可以被分区和命名，还可以监视后台窗口的活动。
+
+##### **会话共享**
+
+Screen可以让一个或多个用户从不同终端多次登录一个会话，并共享会话的所有特性（比如可以看到完全相同的输出）。它同时提供了窗口访问权限的机制，可以对窗口进行密码保护
+
+#### 语法
+
+```
+screen [-AmRvx -ls -wipe][-d <作业名称>][-h <行数>][-r <作业名称>][-s ][-S <作业名称>]
+```
+
+**参数说明**
+
+-A 　将所有的视窗都调整为目前终端机的大小。
+-d <作业名称> 　将指定的screen作业离线。
+-h <行数> 　指定视窗的缓冲区行数。
+-m 　即使目前已在作业中的screen作业，仍强制建立新的screen作业。
+-r <作业名称> 　恢复离线的screen作业。
+-R 　先试图恢复离线的作业。若找不到离线的作业，即建立新的screen作业。
+-s 　指定建立新视窗时，所要执行的shell。
+-S <作业名称> 　指定screen作业的名称。
+-v 　显示版本信息。
+-x 　恢复之前离线的screen作业。
+-ls或--list 　显示目前所有的screen作业。
+-wipe 　检查目前所有的screen作业，并删除已经无法使用的screen作业。
+
+
+
+screen -S yourname -> 新建一个叫yourname的session
+screen -ls -> 列出当前所有的session
+screen -r yourname -> 回到yourname这个session
+screen -d yourname -> 远程detach某个session
+screen -d -r yourname -> 结束当前session并回到yourname这个session
+
+**在每个screen session 下，所有命令都以 ctrl+a(C-a) 开始。**
+C-a ? -> 显示所有键绑定信息
+C-a c -> 创建一个新的运行shell的窗口并切换到该窗口
+C-a n -> Next，切换到下一个 window 
+C-a p -> Previous，切换到前一个 window 
+C-a 0..9 -> 切换到第 0..9 个 window
+Ctrl+a [Space] -> 由视窗0循序切换到视窗9
+C-a C-a -> 在两个最近使用的 window 间切换 
+C-a x -> 锁住当前的 window，需用用户密码解锁
+C-a d -> detach，暂时离开当前session，将目前的 screen session (可能含有多个 windows) 丢到后台执行，并会回到还没进 screen 时的状态，此时在 screen session 里，每个 window 内运行的 process (无论是前台/后台)都在继续执行，即使 logout 也不影响。 
+C-a z -> 把当前session放到后台执行，用 shell 的 fg 命令则可回去。
+C-a w -> 显示所有窗口列表
+C-a t -> Time，显示当前时间，和系统的 load 
+C-a k -> kill window，强行关闭当前的 window
+C-a [ -> 进入 copy mode，在 copy mode 下可以回滚、搜索、复制就像用使用 vi 一样
+  C-b Backward，PageUp 
+  C-f Forward，PageDown 
+  H(大写) High，将光标移至左上角 
+  L Low，将光标移至左下角 
+  0 移到行首 
+  $ 行末 
+  w forward one word，以字为单位往前移 
+  b backward one word，以字为单位往后移 
+  Space 第一次按为标记区起点，第二次按为终点 
+  Esc 结束 copy mode 
+C-a ] -> Paste，把刚刚在 copy mode 选定的内容贴上
+
+
+
+参考博客[screen使用详解](https://www.cnblogs.com/mchina/archive/2013/01/30/2880680.html)
+
+### 开机自启脚本
+
+
+
+
+
+## 常用命令工具
+
+### wget下载文件
+
+### proxychains代理
+
+
 
 ## 有趣的工具
 
