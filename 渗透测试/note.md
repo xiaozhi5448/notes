@@ -16,9 +16,7 @@
 
 重点关注信息：注册商、注册人、邮件与DNS解析服务器、注册人联系方式
 
-#### ICP备案信息查询
 
-`<http://www.beianbeian.com/>`
 
 #### 子域名收集
 
@@ -32,7 +30,15 @@ maltego
 
 [subdomain3](https://github.com/yanxiu0614/subdomain3 )
 
+[subbrute](https://github.com/TheRook/subbrute)
+
+[subDomainBrute3](https://github.com/lijiejie/subDomainsBrute)
+
 ##### 被动
+
+###### ICP备案信息查询
+
+`<http://www.beianbeian.com/>`
 
 ###### 搜索引擎
 
@@ -62,6 +68,10 @@ https://phpinfo.me/domain
 
 http://dns.aizhan.com
 
+###### discover script
+
+
+
 #### 邮箱收集
 
 （1）通过说明文档以及网站页面收集，或者网站发表者以及留言板信息处收集账号
@@ -71,6 +81,8 @@ http://dns.aizhan.com
 （3）搜索相关 QQ 群收集相关企业员工的社交账号
 
 可用来进行爆破或者弱口令登录以及撞裤攻击
+
+通过从区域互联网注册管理机构查询某个IP地址是否属于某公司
 
 ### ip段
 
@@ -182,7 +194,7 @@ site: github.com userId Password
 
 通过 zmpap 全网爆破查询真实ip（可靠）。
 
-
+查询IP分配服务机构获取该IP所有者
 
 ### 端口扫描
 
