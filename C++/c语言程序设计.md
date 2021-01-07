@@ -110,11 +110,95 @@ void* thread_func(void *arg){
 
 线程在运行的过程中可以被主线程中的函数取消,但是线程内部要先设置可以被取消的选项.这两个问题，我们都可以利用线程的取消点(cancellation points)来避免。线程的cancel type有两种：PTHREAD_CANCEL_DEFERRED和PTHREAD_CANCEL_ASYNCHRONOUS，前者为默认类型，意味着线程只有在取消点处才能被cancel。也就是说，在对线程pthread_cancel()之后，线程还要继续执行到下一个取消点才会退出。
 可以通过pthread_setcanceltype()来改变线程的cancel type，但强烈不建议这样做，因为你如果改为PTHREAD_CANCEL_ASYNCHRONOUS类型，线程可以在代码的任何地方退出，就很难处理上述两个资源释放问题。
+
+##### **与线程取消相关的pthread函数**
+
+int **pthread_cancel**(pthread_t thread)
+发送终止信号给thread线程，如果成功则返回0，否则为非0值。发送成功并不意味着thread会终止。
+
+int **pthread_setcancelstate**(int state,  int *oldstate) 
+设置本线程对Cancel信号的反应，state有两种值：PTHREAD_CANCEL_ENABLE（缺省）和PTHREAD_CANCEL_DISABLE，
+分别表示收到信号后设为CANCLED状态和忽略CANCEL信号继续运行；old_state如果不为NULL则存入原来的Cancel状态以便恢复。 
+
+int **pthread_setcanceltype**(int type, int *oldtype) 
+设置本线程取消动作的执行时机，type由两种取值：PTHREAD_CANCEL_DEFFERED和PTHREAD_CANCEL_ASYCHRONOUS，仅当Cancel状态为Enable时有效，分别表示收到信号后继续运行至下一个取消点再退出和立即执行取消动作（退出）；oldtype如果不为NULL则存入运来的取消动作类型值。 
+
+void **pthread_testcancel**(void)
+是说pthread_testcancel在不包含取消点，但是又需要取消点的地方创建一个取消点，以便在一个没有包含取消点的执行代码线程中响应取消请求.
+线程取消功能处于启用状态且取消状态设置为延迟状态时，pthread_testcancel()函数有效。
+如果在取消功能处处于禁用状态下调用pthread_testcancel()，则该函数不起作用。
+请务必仅在线程取消线程操作安全的序列中插入pthread_testcancel()。除通过pthread_testcancel()调用以编程方式建立的取消点意外，pthread标准还指定了几个取消点。测试退出点,就是测试cancel信号.
+
+##### **取消点**
+
+线程取消的方法是向目标线程发Cancel信号，但如何处理Cancel信号则由目标线程自己决定，或者忽略、或者立即终止、或者继续运行至Cancelation-point（取消点），由不同的Cancelation状态决定。
+
+线程接收到CANCEL信号的缺省处理（即pthread_create()创建线程的缺省状态）是继续运行至取消点，也就是说设置一个CANCELED状态，线程继续运行，只有运行至Cancelation-point的时候才会退出。
+
+pthreads标准指定了几个取消点，其中包括：
+(1)通过pthread_testcancel调用以编程方式建立线程取消点。
+(2)线程等待pthread_cond_wait或pthread_cond_timewait()中的特定条件。
+(3)被sigwait(2)阻塞的函数
+(4)一些标准的库调用。通常，这些调用包括线程可基于阻塞的函数。
+
+缺省情况下，将启用取消功能。有时，您可能希望应用程序禁用取消功能。如果禁用取消功能，则会导致延迟所有的取消请求，
+直到再次启用取消请求。 
+根据POSIX标准，pthread_join()、pthread_testcancel()、pthread_cond_wait()、pthread_cond_timedwait()、sem_wait()、sigwait()等函数以及
+read()、write()等会引起阻塞的系统调用都是Cancelation-point，而其他pthread函数都不会引起Cancelation动作。
+但是pthread_cancel的手册页声称，由于LinuxThread库与C库结合得不好，因而目前C库函数都不是Cancelation-point；但CANCEL信号会使线程从阻塞的系统调用中退出，并置EINTR错误码，因此可以在需要作为Cancelation-point的系统调用前后调用pthread_testcancel()，从而达到POSIX标准所要求的目标.
+即如下代码段：
+**pthread_testcancel**();
+retcode = read(fd, buffer, length);
+**pthread_testcancel**();
+
+注意：
+**程序设计方面的考虑,如果线程处于无限循环中，且循环体内没有执行至取消点的必然路径，则线程无法由外部其他线程的取消请求而终止。因此在这样的循环体的必经路径上应该加入pthread_testcancel()调用.**
+
+
+
+##### **线程终止的清理工作**
+
+Posix的线程终止有两种情况：正常终止和非正常终止。
+线程主动调用pthread_exit()或者从线程函数中return都将使线程正常退出，这是可预见的退出方式；
+非正常终止是线程在其他线程的干预下，或者由于自身运行出错（比如访问非法地址）而退出，这种退出方式是不可预见的。
+
+不论是可预见的线程终止还是异常终止，都会存在资源释放的问题，在不考虑因运行出错而退出的前提下，如何保证线程终止时能顺利的释放掉自己所占用的资源，特别是锁资源，就是一个必须考虑解决的问题。
+最经常出现的情形是资源独占锁的使用：线程为了访问临界资源而为其加上锁，但在访问过程中被外界取消，如果线程处于响应取消状态，且采用异步方式响应，或者在打开独占锁以前的运行路径上存在取消点，则该临界资源将永远处于锁定状态得不到释放。外界取消操作是不可预见的，因此的确需要一个机制来简化用于资源释放的编程。
+
+在POSIX线程API中提供了一个pthread_cleanup_push()/ pthread_cleanup_pop()函数,
+对用于自动释放资源—从pthread_cleanup_push()的调用点到pthread_cleanup_pop()之间的程序段中的终止动作（包括调用pthread_exit()和取消点终止）都将执行pthread_cleanup_push()所指定的清理函数。
+
+API定义如下：
+void pthread_cleanup_push(void (*routine) (void *), void *arg)
+void pthread_cleanup_pop(int execute)
+
+pthread_cleanup_push()/pthread_cleanup_pop()采用先入后出的栈结构管理，void routine(void *arg)函数
+在调用pthread_cleanup_push()时压入清理函数栈，多次对pthread_cleanup_push() 的调用将在清理函数栈中形成一个函数链；
+从pthread_cleanup_push的调用点到pthread_cleanup_pop之间的程序段中的终止动作（包括调用pthread_exit()和异常终止，不包括return）
+都将执行pthread_cleanup_push()所指定的清理函数。
+
+在执行该函数链时按照压栈的相反顺序弹出。execute参数表示执行到 pthread_cleanup_pop()时
+是否在弹出清理函数的同时执行该函数，为0表示不执行，非0为执行；这个参数并不影响异常终止时清理函数的执行。
+
 一个取消线程的简单示例
+
+
 
 #### 线程同步
 
+
+
 ##### 信号量
+
+include<semaphore.h>
+
+sem_init
+
+sem_post
+
+sem_wait
+
+sem_destroy
 
 ```c
 #include<stdio.h>
@@ -584,59 +668,6 @@ SYNOPSIS
 
 ```
 
-
-
-waitpid函数可以用来等待某个进程结束。
-
-```c
-NAME
-       wait, waitpid, waitid - wait for process to change state
-
-SYNOPSIS
-       #include <sys/types.h>
-       #include <sys/wait.h>
-
-       pid_t wait(int *wstatus);
-
-       pid_t waitpid(pid_t pid, int *wstatus, int options);
-
-       int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
-                       /* This is the glibc and POSIX interface; see
-                          NOTES for information on the raw system call. */
-
-```
-
-pid参数的值
-
-```
-The value of pid can be:
-
-       < -1   meaning wait for any child process whose process group ID is equal to the absolute value
-              of pid.
-
-       -1     meaning wait for any child process.
-
-       0      meaning wait for any child process whose process group ID is equal to that of the  call‐
-              ing process.
-
-       > 0    meaning wait for the child whose process ID is equal to the value of pid.
-```
-
-options参数的值
-
-```
-WNOHANG     return immediately if no child has exited.
-
-WUNTRACED   also  return  if  a  child  has stopped (but not traced via ptrace(2)).  	Status for traced children which have stopped is provided even if this option  is  		not  specified.
-
-WCONTINUED (since Linux 2.6.10)
-      also return if a stopped child has been resumed by delivery of SIGCONT.
-```
-
-wstatus是一个结果参数，指向的整数中保存了进程的状态信息，使用一些预定义的宏可以查看进程因何种原因产生了信号
-
-
-
 一个使用fork的例子
 
 ```c
@@ -649,6 +680,10 @@ if(pid == 0){
     waitpid(pid, NULL, 0);
 }
 ```
+
+
+
+
 
 
 
@@ -817,9 +852,7 @@ int dup3(int oldfd, int newfd, int flags);
 
 The dup2() system call performs the same task as dup(), but instead of using the lowest-numbered unused  file   descriptor,  it  uses the file descriptor number specified in newfd.  If the file descriptor newfd was previously open, it is silently closed before being reused.
 
-dup2会关闭newfd本来的连接，使用newfd重新打开oldfd指向的文件，该调用完成之后，newfd会指向与oldfd相同的文件。这个功能在我们想操
-
-作子进程标准输入与标准输出时有用。比如我们想把父进程的数据发送到子进程的标准输入，使用
+dup2会关闭newfd本来的连接，使用newfd重新打开oldfd指向的文件，该调用完成之后，newfd会指向与oldfd相同的文件。这个功能在我们想操作子进程标准输入与标准输出时有用。比如我们想把父进程的数据发送到子进程的标准输入，使用
 
 ```C
 dup2(pipe_fds[0], STDIN_FILENO);
@@ -837,11 +870,109 @@ dup2(pipe_fds[1], STDOUT_FILENO);
 
 ##### 信号
 
+当我们想终止某个命令行在前台执行的进程时，按下键盘的crtl-c，进程会受到一个称为sigint的信号，程序退出。
+
+信号是linux系统实现的软中断机制。在一定程度上实现了进程间通信。
+
+软中断信号（signal，又简称为信号）用来通知进程发生了异步事件。在软件层次上是对中断机制的一种模拟，在原理上，一个进程收到一个信号与处理器收到一个中断请求可以说是一样的。信号是进程间通信机制中唯一的异步通信机制，一个进程不必通过任何操作来等待信号的到达，事实上，进程也不知道信号到底什么时候到达。进程之间可以互相通过系统调用kill发送软中断信号。内核也可以因为内部事件而给进程发送信号，通知进程发生了某个事件。信号机制除了基本通知功能外，还可以传递附加信息
+
+###### 信号分类
+
+使用kill -l可以看到支持的信号类型
+
+![image-20210106210214900](c%E8%AF%AD%E8%A8%80%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1.assets/image-20210106210214900.png)
+
+我们在某个进程设置信号处理函数，当该进程接收到对应信号时，引发对应的动作
+
+相关api：kill(), signal(), sigaction(),相关数据结构： struct sigaction;
+
+waitpid函数可以用来等待某个进程状态变化。
+
+```c
+NAME
+       wait, waitpid, waitid - wait for process to change state
+
+SYNOPSIS
+       #include <sys/types.h>
+       #include <sys/wait.h>
+
+       pid_t wait(int *wstatus);
+
+       pid_t waitpid(pid_t pid, int *wstatus, int options);
+
+       int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
+                       /* This is the glibc and POSIX interface; see
+                          NOTES for information on the raw system call. */
+
+```
+
+pid参数的值
+
+```
+The value of pid can be:
+
+       < -1   meaning wait for any child process whose process group ID is equal to the absolute value
+              of pid.
+
+       -1     meaning wait for any child process.
+
+       0      meaning wait for any child process whose process group ID is equal to that of the  call‐
+              ing process.
+
+       > 0    meaning wait for the child whose process ID is equal to the value of pid.
+```
+
+options参数的值
+
+```
+WNOHANG     return immediately if no child has exited.
+
+WUNTRACED   also  return  if  a  child  has stopped (but not traced via ptrace(2)).  	Status for traced children which have stopped is provided even if this option  is  		not  specified.
+
+WCONTINUED (since Linux 2.6.10)
+      also return if a stopped child has been resumed by delivery of SIGCONT.
+```
+
+wstatus是一个结果参数，指向的整数中保存了进程的状态信息，使用一些预定义的宏可以查看进程因何种原因产生了信号
+
+```
+If wstatus is not NULL, wait() and waitpid() store status information in the int to  which  it  points.   This integer  can  be  inspected  with  the  following  macros (which take the integer itself as an argument, not a pointer to it, as is done in wait() and waitpid()!):
+
+      WIFEXITED(wstatus)
+              returns true if the child terminated normally, that is, by calling exit(3) or _exit(2), or by returning from main().
+
+       WEXITSTATUS(wstatus)
+              returns  the  exit  status  of  the child.  This consists of the least significant 8 bits of the status argument that the child specified in a call to exit(3) or _exit(2) or as  the  argument  for  a  return  statement in main().  This macro should be employed only if WIFEXITED returned true.
+
+       WIFSIGNALED(wstatus)
+              returns true if the child process was terminated by a signal.
+
+       WTERMSIG(wstatus)
+              returns  the  number  of  the  signal that caused the child process to terminate.  This macro should be employed only if WIFSIGNALED returned true.
+
+       WCOREDUMP(wstatus)
+              returns true if the child produced a core dump.  This macro should  be  employed  only  if  WIFSIGNALED returned true.
+      WIFSTOPPED(wstatus)
+              returns true if the child process was stopped by delivery of a signal; this is  possible  only  if  the call was done using WUNTRACED or when the child is being traced (see ptrace(2)).
+
+       WSTOPSIG(wstatus)
+              returns the number of the signal which caused the child to stop.  This macro should be employed only if  WIFSTOPPED returned true.
+
+       WIFCONTINUED(wstatus)
+              (since Linux 2.6.10) returns true if the child process was resumed by delivery of SIGCONT.
+```
+
+SIGCHLD信号是在父子进程通信过程中常用的信号，当子进程状态发生改变，会给父进程发送sigchld信号，父进程在sigchld信号的处理函数中使用waitpid函数检查子进程发生了何种状态改变。当程序中有多进程代码，父进程要及时检查子进程状态，避免子进程成为僵尸进程。
+
+具体的例子可以参照附录：一个使用信号通信的shell程序
+
+##### 消息队列
+
+##### 共享内存
+
 
 
 ## socket网络程序设计
-
-
 
 设计socket程序时,要提前设计好通信协议,socket通信步骤范式十分明显,对服务端程序来说
 
@@ -1722,6 +1853,17 @@ launch json
 }
 ```
 
+在cmakelist文件中，添加程序链接时需要的第三方库，比如pthread
+
+使用
+
+```cmake
+find_package(Threads)
+target_link_libraries(mash ${CMAKE_THREAD_LIBS_INIT})
+# or
+target_link_libraries(mash pthread)
+```
+
 
 
 
@@ -1729,4 +1871,712 @@ launch json
 ## gcc与gdb调试教程
 
 
+
+## 附录
+
+### shell-父子进程与信号
+
+```c
+/* This is the only file you should update and submit. */
+
+/* Fill in your Name and GNumber in the following two comment fields
+ * Name:
+ * GNumber:
+ */
+#include <string.h>
+#include "logging.h"
+#include "shell.h"
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/fcntl.h>
+#include <pthread.h>
+#include <signal.h>
+#define max_command_length 100
+#define max_argument_count 50
+#define max_job_count 50
+
+// foreground process group id
+// static pid_t foreground_pgid = 0;
+// backgrouond process group id, all background process will be put into this group
+// static pid_t background_pgid = 55555;
+/* Constants */
+// static const char *shell_path[] = {"./", "/usr/bin/", NULL};
+static const char *built_ins[] =
+	{"quit", "help", "kill", "jobs", "fg", "bg", NULL};
+
+/* Feel free to define additional functions and update existing lines */
+
+int foreground_process_id = -1;
+// global job index
+int current_job_count = 0;
+
+// process struct
+typedef struct process_t
+{
+	int job_id;				// id of job
+	char command_line[100]; // command
+	pid_t process_id;		// pid
+	char status[10];		// status
+	Cmd_aux aux;
+} Process;
+
+// global jobs array, store job relative information
+Process jobs[max_job_count];
+void wait_process(pid_t process_id, int foreground);
+/**
+ * set process id with -1
+ * */
+void init_jobs()
+{
+	for (int i = 0; i < max_job_count; i++)
+	{
+		jobs[i].process_id = -1;
+	}
+}
+
+int find_blank_job()
+{
+	for (int i = 0; i < max_job_count; i++)
+	{
+		if (jobs[i].process_id == -1)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
+int find_job_index(int process_id)
+{
+	int job_index = -1;
+	for (int i = 0; i < max_job_count; i++)
+	{
+		if (jobs[i].process_id == process_id)
+		{
+			job_index = i;
+		}
+	}
+	return job_index;
+}
+
+void delete_job(int job_index)
+{
+	strncpy(jobs[job_index].status, "DEAD", 4);
+	jobs[job_index].status[4] = '\0';
+	jobs[job_index].process_id = -1;
+	if (jobs[job_index].aux.in_file)
+	{
+		free(jobs[job_index].aux.in_file);
+		jobs[job_index].aux.in_file = NULL;
+	}
+	if (jobs[job_index].aux.out_file)
+	{
+		free(jobs[job_index].aux.out_file);
+		jobs[job_index].aux.out_file = NULL;
+	}
+}
+
+void delete_process(int process_id)
+{
+	int job_index = -1;
+	for (int i = 0; i < max_job_count; i++)
+	{
+		if (process_id == jobs[i].process_id)
+		{
+			job_index = i;
+			break;
+		}
+	}
+	if (job_index == -1)
+	{
+		return;
+	}
+	else
+	{
+		delete_job(job_index);
+	}
+}
+/**
+ * check background process status, if something happened, change process status
+ * */
+void check_bg_status_func(int id)
+{
+	// pid_t process_id = *(pid_t *)id;
+
+	for (int i = 0; i < max_job_count; i++)
+	{
+		// process_id not -1 and process type is background process
+		if (jobs[i].process_id != -1)
+		{
+			// printf("check status of process : %d\n", jobs[i].process_id);
+			wait_process(jobs[i].process_id, !jobs[i].aux.is_bg);
+		}
+	}
+}
+
+/**
+ * signal function  for SIGINT received
+ * */
+void process_crtl_c(int sig)
+{
+	// show log info
+	log_ctrl_c();
+	// printf("crtl-c: process %d\n", foreground_process_id);
+	// if no process is running foreground
+	if (foreground_process_id == -1)
+	{
+		return;
+	}
+	else
+	{
+		// send SIGTERM to foreground process
+		kill(foreground_process_id, SIGINT);
+		wait_process(foreground_process_id, 1);
+		foreground_process_id = -1;
+		return;
+	}
+}
+
+/**
+ * signal function for crtl-z
+ * 
+ * */
+void process_crtl_z(int sig)
+{
+	log_ctrl_z();
+	// no process is running foreground
+	if (foreground_process_id == -1)
+	{
+		return;
+	}
+	else
+	{
+		kill(foreground_process_id, SIGTSTP);
+		int job_index = 0;
+		for (int i = 0; i < max_job_count; i++)
+		{
+			if (jobs[i].process_id == foreground_process_id)
+			{
+				job_index = i;
+				break;
+			}
+		}
+		strncpy(jobs[job_index].status, "Stopped", 7);
+		jobs[job_index].status[7] = '\0';
+		jobs[job_index].aux.is_bg = 1;
+	}
+	foreground_process_id = -1;
+}
+
+void change_process_foreground(int job_id)
+{
+	// find job in job array relative to job_id
+	int job_index = -1;
+	for (int i = 0; i < max_job_count; i++)
+	{
+		if (jobs[i].job_id == job_id)
+		{
+			job_index = i;
+			break;
+		}
+	}
+	if (job_index == -1)
+	{
+		log_jobid_error(job_id);
+		return;
+	}
+	else
+	// change job to foreground
+	{
+
+		jobs[job_index].aux.is_bg = 0;
+		// change pgid to foreground pgid
+		// int ret = setpgid(jobs[job_index].process_id, foreground_pgid);
+		// if(ret == -1){
+		// 	perror("setpgid");
+		// }
+		foreground_process_id = jobs[job_index].process_id;
+		log_job_fg(jobs[job_index].process_id, jobs[job_index].command_line);
+		kill(jobs[job_index].process_id, SIGCONT);
+		log_job_fg_cont(jobs[job_index].process_id, jobs[job_index].command_line);
+
+		int status = 0;
+		// wait for process terminated
+		int ret = waitpid(foreground_process_id, &status, WUNTRACED);
+		if (ret != 0 && ret != -1)
+		{
+			if (WIFEXITED(status))
+			{
+				log_job_fg_term(jobs[job_index].process_id, jobs[job_index].command_line);
+				delete_job(job_index);
+			}
+			else if (WIFSTOPPED(status))
+			{
+				jobs[job_index].aux.is_bg = 1;
+			}
+		}
+	}
+}
+
+void change_process_state_background(int job_id)
+{
+	// find job data relative to job id
+	int job_index = -1;
+	for (int i = 0; i < max_job_count; i++)
+	{
+		if (jobs[i].job_id == job_id)
+		{
+			job_index = i;
+			break;
+		}
+	}
+	if (job_index == -1)
+	{
+		log_jobid_error(job_id);
+		return;
+	}
+	else
+	{
+		// send stop signal to process
+		log_job_bg(jobs[job_index].process_id, jobs[job_index].command_line);
+		kill(jobs[job_index].process_id, SIGCONT);
+	}
+}
+
+void wait_process(pid_t process_id, int foreground)
+{
+	int status = 0;
+	// printf("waiting process : %d\n", process_id);
+	int ret = -1;
+	if (foreground)
+	{
+		ret = waitpid(process_id, &status, WUNTRACED | WCONTINUED);
+	}
+	else
+	{
+		ret = waitpid(process_id, &status, WNOHANG | WUNTRACED | WCONTINUED);
+	}
+
+	// printf("wait process : %d returned %d\n", process_id, ret);
+	int job_index = find_job_index(process_id);
+	if (ret == -1)
+	// error occured
+	{
+		// perror("waitpid failed: ");
+		return;
+	}
+	else if (ret == 0)
+	{
+		return;
+	}
+	else if (WIFSTOPPED(status))
+	// stopped
+	{
+		strncpy(jobs[job_index].status, "Stopped", 7);
+		jobs[job_index].status[7] = '\0';
+		if (jobs[job_index].aux.is_bg)
+		{
+			log_job_bg_stopped(process_id, jobs[job_index].command_line);
+		}
+		else
+		{
+			jobs[job_index].aux.is_bg = 1;
+			log_job_fg_stopped(process_id, jobs[job_index].command_line);
+		}
+	}
+	else if (WIFSIGNALED(status))
+	// killed by signal
+	{
+		strncpy(jobs[job_index].status, "DEAD", 4);
+		jobs[job_index].status[4] = '\0';
+		if (jobs[job_index].aux.is_bg)
+		{
+			log_job_bg_term_sig(process_id, jobs[job_index].command_line);
+		}
+		else
+		{
+			log_job_fg_term_sig(process_id, jobs[job_index].command_line);
+		}
+		// printf("%d\n", WIFSIGNALED(status));
+		delete_job(job_index);
+	}
+	else if (WIFEXITED(status))
+	{
+		// printf("%d\n", WIFEXITED(status));
+		// printf("%d\n", WTERMSIG(status));
+		strncpy(jobs[job_index].status, "DEAD", 4);
+		jobs[job_index].status[4] = '\0';
+		if (jobs[job_index].aux.is_bg)
+		{
+			log_job_bg_term(process_id, jobs[job_index].command_line);
+		}
+		else
+		{
+			log_job_fg_term(foreground_process_id, jobs[job_index].command_line);
+		}
+		delete_job(job_index);
+	}
+	else if (WIFCONTINUED(status))
+	{
+		strncpy(jobs[job_index].status, "Running", 7);
+		jobs[job_index].status[7] = '\0';
+		if (jobs[job_index].aux.is_bg)
+		{
+			log_job_bg_cont(process_id, jobs[job_index].command_line);
+		}
+		else
+		{
+			log_job_fg_cont(process_id, jobs[job_index].command_line);
+		}
+	}
+	// printf("log by wait child signal\n");
+	if (!foreground)
+	{
+		// log_prompt();
+	}
+}
+
+void register_signal()
+{
+	struct sigaction int_act, int_oldact;
+	int_act.sa_flags = 0;
+	int_act.sa_handler = process_crtl_c;
+	sigaction(SIGINT, &int_act, &int_oldact);
+
+	struct sigaction stp_act, stp_oldact;
+	stp_act.sa_flags = 0;
+	stp_act.sa_handler = process_crtl_z;
+	sigaction(SIGTSTP, &stp_act, &stp_oldact);
+
+	struct sigaction child_act;
+	child_act.sa_flags = 0;
+	child_act.sa_handler = check_bg_status_func;
+	sigaction(SIGCHLD, &child_act, NULL);
+}
+
+void command_quit()
+{
+	// release memory
+	for (int i = 0; i < max_job_count; i++)
+	{
+		if (jobs[i].process_id != -1)
+		{
+			delete_process(jobs[i].process_id);
+		}
+	}
+
+	log_quit();
+	exit(0);
+}
+
+void show_jobs()
+{
+	// find jobs with background  property
+	// printf("jobs start\n");
+	int job_count = 0;
+	int job_indexes[20];
+	for (int i = 0; i < max_job_count; i++)
+	{
+		if (jobs[i].process_id != -1)
+		{
+			job_indexes[job_count++] = i;
+		}
+	}
+	// printf("find %d jobs\n", job_count);
+	log_job_number(job_count);
+	for (int i = 0; i < job_count; i++)
+	{
+		log_job_details(jobs[job_indexes[i]].job_id, jobs[job_indexes[i]].process_id,
+						jobs[job_indexes[i]].status, jobs[job_indexes[i]].command_line);
+	}
+	// printf("jobs log finished!\n");
+}
+
+int check_builtin(char *command)
+{
+	int i = 0;
+	while (i < 6)
+	{
+		if (strncmp(built_ins[i], command, strlen(built_ins[i])) == 0)
+		{
+			return 1;
+		}
+		i++;
+	}
+	return 0;
+}
+
+void process_builtin_command(char **argv)
+{
+	if (strcmp(argv[0], "help") == 0)
+	{
+		log_help();
+	}
+	// quit
+	else if (strcmp(argv[0], "quit") == 0)
+	{
+		command_quit();
+	}
+	// fg
+	else if (strcmp(argv[0], "fg") == 0)
+	{
+		change_process_foreground(atoi(argv[1]));
+	}
+	// bg
+	else if (strcmp(argv[0], "bg") == 0)
+	{
+		change_process_state_background(atoi(argv[1]));
+	}
+	// jobs
+	else if (strcmp(argv[0], "jobs") == 0)
+	{
+		show_jobs();
+	}
+	// kill
+	else if (strcmp(argv[0], "kill") == 0)
+	{
+		int sig_id = atoi(argv[1]);
+		pid_t process_id = atoi(argv[2]);
+		kill(process_id, sig_id);
+		log_kill(sig_id, process_id);
+	}
+}
+
+/* main */
+/* The entry of your shell program */
+int main()
+{
+	init_jobs();
+	char cmdline[MAXLINE]; /* Command line */
+	/* Intial Prompt and Welcome */
+	log_prompt();
+	log_help();
+	register_signal();
+	/* Shell looping here to accept user command and execute */
+	while (1)
+	{
+
+		char *argv[MAXARGS]; /* Argument list */
+		Cmd_aux aux;		 /* Auxilliary cmd info: check shell.h */
+		aux.in_file = NULL;
+		aux.out_file = NULL;
+		aux.is_append = 0;
+		aux.is_bg = 0;
+		/* Print prompt */
+		// printf("log by main\n");
+		log_prompt();
+
+		/* Read a line */
+		// note: fgets will keep the ending '\n'
+		if (fgets(cmdline, MAXLINE, stdin) == NULL)
+		{
+			if (errno == EINTR)
+				continue;
+			exit(-1);
+		}
+
+		if (feof(stdin))
+		{
+			exit(0);
+		}
+
+		/* Parse command line */
+		// printf("get commandline: %s\n", cmdline);
+		cmdline[strlen(cmdline) - 1] = '\0'; /* remove trailing '\n' */
+		char original_cmd[100];
+		strncpy(original_cmd, cmdline, strlen(cmdline));
+
+		original_cmd[strlen(cmdline)] = '\0';
+		if (strlen(cmdline) == 0)
+		{
+			continue;
+		}
+		parse(cmdline, argv, &aux);
+		// help
+		if (check_builtin(argv[0]))
+		{
+			process_builtin_command(argv);
+			continue;
+		}
+		/* Evaluate command */
+		/* add your implementation here */
+
+		// find a blank job data struct
+		int job_index = find_blank_job();
+		
+
+		// block SIGCHLD
+		sigset_t new_set, old_set;
+		sigemptyset(&new_set);
+		sigemptyset(&old_set);
+		sigaddset(&new_set, SIGCHLD);
+		sigprocmask(SIG_BLOCK, &new_set, &old_set);
+
+		strncpy(jobs[job_index].command_line, original_cmd, strlen(original_cmd));
+		jobs[job_index].command_line[strlen(original_cmd)] = '\0';
+		jobs[job_index].aux = aux;
+		jobs[job_index].process_id = fork();
+		jobs[job_index].job_id = current_job_count;
+		current_job_count++;
+		strncpy(jobs[job_index].status, "Running", 7);
+		jobs[job_index].status[7] = '\0';
+
+		if (jobs[job_index].process_id == 0)
+		{
+			// child process
+			int ret;
+
+			ret = setpgid(getpid(), 0);
+
+			if (ret == -1)
+			{
+				perror("setgpid failed");
+			}
+			// printf(" process %d has pgid: %d\n", getpid(), getpgrp());
+			if (aux.in_file != NULL)
+			{
+				if (access(aux.in_file, F_OK | R_OK) != 0)
+				{
+					log_file_open_error(aux.in_file);
+					return 2;
+				}
+				else
+				{
+					int in_fd = open(aux.in_file, O_RDONLY);
+					dup2(in_fd, STDIN_FILENO);
+				}
+			}
+			if (aux.out_file != NULL)
+			{
+
+				int out_fd;
+				if (access(aux.out_file, F_OK) == -1)
+				{
+					creat(aux.out_file, 0777);
+				}
+				if (aux.is_append)
+				{
+
+					out_fd = open(aux.out_file, O_APPEND | O_RDWR);
+				}
+				else
+				{
+					out_fd = open(aux.out_file, O_RDWR);
+				}
+				if (out_fd == -1)
+				{
+					log_file_open_error(aux.out_file);
+				}
+				// printf("out fd: %d\n", out_fd);
+				dup2(out_fd, STDOUT_FILENO);
+			}
+
+			char path[50];
+			// try path ./ /usr/bin/ /bin/
+			char *path_prefix[] = {"./", "/usr/bin/", "/bin/"};
+			for (int i = 0; i < 3; i++)
+			{
+				memset(path, '\0', 50);
+				strncpy(path, path_prefix[i], strlen(path_prefix[i]));
+				path[strlen(path_prefix[i])] = '\0';
+				strcat(path, argv[0]);
+				if (execv(path, argv) == -1)
+				{
+					continue;
+				}
+			}
+			log_command_error(cmdline);
+			exit(1);
+		}
+		else
+		{
+			// unblock sigchld
+			sigprocmask(SIG_UNBLOCK, &new_set, &old_set);
+			// parent process
+			// background process
+
+			if (aux.is_bg)
+			{
+				log_start_bg(jobs[job_index].process_id, original_cmd);
+				foreground_process_id = -1;
+			}
+			// foreground process
+			else
+			{
+				// wait child process finished
+				log_start_fg(jobs[job_index].process_id, original_cmd);
+				foreground_process_id = jobs[job_index].process_id;
+				wait_process(foreground_process_id, 1);
+			}
+		}
+	}
+}
+/* end main */
+
+/* required function as your staring point; 
+ * check shell.h for details
+ */
+
+void parse(char *cmd_line, char *argv[], Cmd_aux *aux)
+{
+	char *pch = NULL;
+	pch = strtok(cmd_line, " ");
+	int argv_index = 0;
+	while (pch != NULL)
+	{
+		if (*pch == '>')
+		{
+			if (strlen(pch) == 1)
+			{
+				pch = strtok(NULL, " ");
+				aux->out_file = (char *)malloc(sizeof(char) * (strlen(pch) + 1));
+				strncpy(aux->out_file, pch, strlen(pch));
+				aux->out_file[strlen(pch)] = '\0';
+				aux->is_append = 0;
+			}
+			else if (strlen(pch) == 2)
+			{
+				pch = strtok(NULL, " ");
+				aux->out_file = (char *)malloc(sizeof(char) * (strlen(pch) + 1));
+				strncpy(aux->out_file, pch, strlen(pch));
+				aux->out_file[strlen(pch)] = '\0';
+				aux->is_append = 1;
+			}
+			else
+			{
+				// printf("invalid command!\n");
+				return;
+			}
+		}
+		else if (*pch == '<')
+		{
+			if (strlen(pch) == 1)
+			{
+				pch = strtok(NULL, " ");
+				aux->in_file = (char *)malloc(sizeof(char) * (strlen(pch) + 1));
+				strncpy(aux->in_file, pch, strlen(pch));
+				aux->in_file[strlen(pch)] = '\0';
+			}
+			else
+			{
+				// printf("invalid command\n");
+				return;
+			}
+		}
+		else if (*pch == '&')
+		{
+			aux->is_bg = 1;
+		}
+		else
+		{
+			argv[argv_index] = pch;
+			argv_index++;
+		}
+		pch = strtok(NULL, " ");
+	}
+	argv[argv_index] = NULL;
+}
+
+```
 
