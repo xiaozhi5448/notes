@@ -371,19 +371,321 @@ public class MyConfig {
 
 比如有application-dev.yml 与application-prod.yml
 
+激活方式有如下三种
 
+1、在配置文件中指定 spring.profiles.active=dev
+2、命令行：
+java -jar spring-boot-02-config-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev；
+可以直接在测试的时候，配置传入命令行参数
+3、虚拟机参数；
+-Dspring.profiles.active=dev
 
+也可以使用yml文档块
 
+```yml
+spring:
+	profiles:
+		active: prod
+‐‐‐
+server:
+	port: 8083
+spring:
+	profiles: dev
+‐‐‐
+server:
+	port: 8084
+spring:
+	profiles: prod #指定属于哪个环境
+```
+
+#### 配置文件加载位置
+
+springboot 启动会扫描以下位置的application.properties或者application.yml文件作为Spring boot的默认配置文
+件
+**–file:./config/**
+**–file:./**
+**–classpath:/config/**
+**–classpath:/**
+优先级由高到底，高优先级的配置会覆盖低优先级的配置
+
+我们还可以通过**spring.config.location**来改变默认的配置文件位置
+项目打包好以后，我们可以使用命令行参数的形式，启动项目的时候来指定配置文件的新位置；指定配置文件和默
+认加载的这些配置文件共同起作用形成互补配置；
+java -jar spring-boot-02-config-02-0.0.1-SNAPSHOT.jar **--spring.config.location**=G:/application.properties
+
+#### 外部配置加载顺序
+
+SpringBoot也可以从以下位置加载配置； 优先级从高到低；高优先级的配置覆盖低优先级的配置，所有的配置会
+形成互补配置
+1. 命令行参数
+**所有的配置都可以在命令行上进行指定**
+java -jar spring-boot-02-config-02-0.0.1-SNAPSHOT.jar --server.port=8087 --server.context-path=/abc
+多个配置用空格分开； --配置项=值
+2. 来自java:comp/env的JNDI属性
+3.Java系统属性（System.getProperties()）
+4.操作系统环境变量
+5.RandomValuePropertySource配置的random.*属性值
+由jar包外向jar包内进行寻找；
+优先加载带profile
+6.jar包外部的application-{profile}.properties或application.yml(带spring.profile)配置文件
+7.jar包内部的application-{profile}.properties或application.yml(带spring.profile)配置文件
+再来加载不带profile
+8.jar包外部的application.properties或application.yml(不带spring.profile)配置文件
+9.jar包内部的application.properties或application.yml(不带spring.profile)配置文件
+10.@Configuration注解类上的@PropertySource
+11.通过SpringApplication.setDefaultProperties指定的默认属性
 
 ## springboot日志框架
 
+springboot中的日志框架是面向接口的模式，我们配置springboot使用某种日志接口（slf4j），导入该接口的一个实现（Logback）
+
+slf4j日志系统结构图
+
+![image-20210111191806114](springboot.assets/image-20210111191806114.png)
 
 
-## springboot MVC
+
+### 初步使用
+
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+public class HelloWorld {
+public static void main(String[] args) {
+Logger logger = LoggerFactory.getLogger(HelloWorld.class);
+logger.info("Hello World");
+}
+}
+```
+
+### 冲突
+
+当我们引入第三方库，它可能使用了与slf4j不同的日志框架实现，这种情况需要我们将原有的日志框架移除，引入适配包，将原有日志接口的调用转换为slf4j接口的调用
+
+![image-20210111192301983](springboot.assets/image-20210111192301983.png)
+
+### 配置
+
+日志输出格式：
+%d表示日期时间，
+%thread表示线程名，
+%‐5level：级别从左显示5个字符宽度
+%logger{50} 表示logger名字最长50个字符，否则按照句点分割。
+%msg：日志消息，
+%n是换行符
+‐‐>
+%d{yyyy‐MM‐dd HH:mm:ss.SSS} [%thread] %‐5level %logger{50} ‐ %msg%n
+
+```properties
+logging.level.com.atguigu=trace
+#logging.path=
+# 不指定路径在当前项目下生成springboot.log日志
+# 可以指定完整的路径；
+#logging.file=G:/springboot.log
+# 在当前磁盘的根路径下创建spring文件夹和里面的log文件夹；使用 spring.log 作为默认文件
+logging.path=/spring/log
+# 在控制台输出的日志的格式
+logging.pattern.console=%d{yyyy‐MM‐dd} [%thread] %‐5level %logger{50} ‐ %msg%n
+# 指定文件中日志输出的格式
+logging.pattern.file=%d{yyyy‐MM‐dd} === [%thread] === %‐5level === %logger{50} ==== %msg%n
+```
+
+如果使用不同的日志实现，在类路径下放对应的日志配置文件即可
+
+## web
+
+### 静态资源映射
+
+- 所有/webjars/ ，都去classpath:/META-INF/resources/webjars/找资源
+  webjars以jar包的方式引入静态资源
+- 静态资源文件夹
+  "classpath:/META‐INF/resources/",
+  "classpath:/resources/",
+  "classpath:/static/",
+  "classpath:/public/"
+  "/"：当前项目的根路径
+- 欢迎页
+  静态资源文件夹下所有的index.html
+- 图标
+  favicon.ico都在静态资源文件夹找
+
+### 模板引擎
+
+thymeleaf
+
+引入
+
+```xml
+<dependency>
+<groupId>org.springframework.boot</groupId>
+<artifactId>spring‐boot‐starter‐thymeleaf</artifactId>
+2.1.6
+</dependency>
+切换thymeleaf版本
+<properties>
+<thymeleaf.version>3.0.9.RELEASE</thymeleaf.version>
+<!‐‐ 布局功能的支持程序 thymeleaf3主程序 layout2以上版本 ‐‐>
+<!‐‐ thymeleaf2 layout1‐‐>
+<thymeleaf‐layout‐dialect.version>2.2.2</thymeleaf‐layout‐dialect.version>
+</properties>
+```
 
 
 
-## 定制错误数据
+### spring MVC
+
+
+
+### 定制错误数据
+
+
+
+### 异常处理
+
+ControllerAdvice注解与ExceptionHandler的使用,使用ControllerAdvice时最好指定controller，否则会处理所有异常
+
+#### 创建异常实体类
+
+包装异常信息
+
+ErrorResponse.java
+
+```java
+package com.example.demo.exception;
+
+public class ErrorResponse {
+    String message;
+    String errorTypeName;
+    public ErrorResponse(Exception e){
+        message = e.getMessage();
+        errorTypeName = e.getClass().getName();
+    }
+    public ErrorResponse(String type, String msg){
+        message = msg;
+        errorTypeName = type;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public String getErrorTypeName() {
+        return errorTypeName;
+    }
+
+    public void setErrorTypeName(String errorTypeName) {
+        this.errorTypeName = errorTypeName;
+    }
+}
+
+```
+
+#### 自定义异常信息
+
+一般我们处理的都是 `RuntimeException` ，所以如果你需要自定义异常类型的话直接集成这个类就可以了
+
+```java
+package com.example.demo.exception;
+// 继承RuntimeException异常
+public class ResourceNotFoundException extends  RuntimeException {
+    String message;
+    public ResourceNotFoundException(){
+        super();
+    }
+    public ResourceNotFoundException(String msg){
+        super(msg);
+        this.message = msg;
+    }
+
+    @Override
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+}
+
+```
+
+#### 异常处理类
+
+我们只需要在类上加上`@ControllerAdvice`注解这个类就成为了全局异常处理类，当然你也可以通过 `assignableTypes `指定特定的 `Controller `类，让异常处理类只处理特定类抛出的异常。
+
+```java
+package com.example.demo.exception;
+
+import com.example.demo.controller.ExceptionController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+@ControllerAdvice(assignableTypes = {ExceptionController.class})
+@ResponseBody
+public class GlobalExceptionHandler {
+    ErrorResponse e1 = new ErrorResponse(new IllegalArgumentException("参数错误"));
+    ErrorResponse e2 = new ErrorResponse(new ResourceNotFoundException("资源未找到"));
+    @ExceptionHandler(value = Exception.class)
+    public ResponseEntity<ErrorResponse> exceptionHandler(Exception e){
+        if(e instanceof IllegalArgumentException){
+            return ResponseEntity.status(400).body(e1);
+        }else if(e instanceof  ResourceNotFoundException){
+            return ResponseEntity.status(400).body(e2);
+        }
+        return null;
+    }
+}
+
+```
+
+#### 抛出异常
+
+ExceptionController.java
+
+```java
+package com.example.demo.controller;
+
+import com.example.demo.exception.ResourceNotFoundException;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController 
+@RequestMapping("/exception")
+public class ExceptionController {
+    @GetMapping("/illegalArgument")
+    public void throwIllegalArgu(){
+        throw new IllegalArgumentException();
+    }
+
+    @GetMapping("/ResourceNotFound")
+    public void throwResourceNotFound(){
+        throw new ResourceNotFoundException();
+    }
+}
+
+```
+
+访问指定接口即可看到对应异常信息
+
+![image-20210115132704187](springboot.assets/image-20210115132704187.png)
+
+#### ResponseStatusException
+
+```java
+ @GetMapping("/resourceNotFoundException2")
+    public void throwException3() {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sorry, the resourse not found!", new ResourceNotFoundException());
+    }
+```
+
+![image-20210115143450769](springboot.assets/image-20210115143450769.png)
 
 
 
@@ -411,7 +713,179 @@ springboot默认使用嵌入式servlet容器，根据官网描述，最新版spr
 
 ### springData JPA
 
+需要的依赖
 
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-jpa</artifactId>
+</dependency>
+<dependency>
+    <groupId>mysql</groupId>
+    <artifactId>mysql-connector-java</artifactId>
+    <scope>runtime</scope>
+</dependency>
+```
+
+配置springboot jpa数据源
+
+```yml
+spring:
+  profiles: prod
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/person
+    username: root
+    password: wodemima
+    driver-class-name: "com.mysql.cj.jdbc.Driver"
+  jpa:
+    properties:
+      hibernate:
+        enable_lazy_load_no_trans: true
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  h2:
+    console:
+      enabled: true
+```
+
+其中ddl_auto:
+
+1. `create`:每次重新启动项目都会重新创新表结构，会导致数据丢失
+2. `create-drop`:每次启动项目创建表结构，关闭项目删除表结构
+3. `update`:每次启动项目会更新表结构
+4. `validate`:验证表结构，不对数据库进行任何更改
+
+实体类
+
+```java
+package com.example.demo.entity;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import javax.persistence.*;
+
+@Entity
+@Data
+@NoArgsConstructor
+public class Person {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    @Column(unique = true)
+    private String name;
+    private Integer age;
+
+    public Person(String name, Integer age) {
+        this.name = name;
+        this.age = age;
+    }
+}
+```
+
+创建repository
+
+```java
+package com.example.demo.repository;
+
+import com.example.demo.entity.Person;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface PersonRepository extends JpaRepository<Person, Long> {
+    Optional<Person> findAllByAgeAfter(Integer age);
+    Optional<Person> findPersonByNameStartingWith(String prefix);
+    @Query("select p.name from Person p where p.id= :id")
+    String findPersonNameById(@Param("id") Long id);
+}
+```
+
+可以使用repository进行增删查改的操作
+
+test
+
+```java
+package com.example.demo.repository;
+
+import com.example.demo.entity.Person;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+@SpringBootTest
+@RunWith(SpringRunner.class)
+public class PersonRepositoryTest {
+    @Autowired
+    PersonRepository personRepository;
+    Long id;
+    @Before
+    public void setUp() {
+        assertNotNull(personRepository);
+        Person person = new Person("SnailClimb", 23);
+        Person savedPerson = personRepository.saveAndFlush(person);// 更新 person 对象的姓名
+        savedPerson.setName("UpdatedName");
+        personRepository.save(savedPerson);
+
+        id = savedPerson.getId();
+    }
+    @Test
+    public void should_get_person() {
+        Optional<Person> personOptional = personRepository.findById(id);
+        assertTrue(personOptional.isPresent());
+        assertEquals("UpdatedName", personOptional.get().getName());
+        assertEquals(Integer.valueOf(23), personOptional.get().getAge());
+
+//        List<Person> personList = personRepository.findByAgeGreaterThan(18);
+//        assertEquals(1, personList.size());
+        // 清空数据库
+        personRepository.deleteAll();
+    }
+
+    @Test
+    public void should_get_person_use_custom_query() {
+        // 查找所有字段
+        Optional<Person> personOptional = personRepository.findAllByAgeAfter(3);
+
+        System.out.println(personOptional.toString());
+//        Optional<Person> personOptional = personRepository.findByNameCustomeQuery("SnailClimb");
+//        assertTrue(personOptional.isPresent());
+//        assertEquals(Integer.valueOf(23), personOptional.get().getAge());
+//        // 查找部分字段
+        String personName = personRepository.findPersonNameById(id);
+        assertEquals("UpdatedName", personName);
+//        System.out.println(id);
+//        // 更新
+//        personRepository.updatePersonNameById("UpdatedName", id);
+//        Optional<Person> updatedName = personRepository.findByNameCustomeQuery("UpdatedName");
+//        assertTrue(updatedName.isPresent());
+        // 清空数据库
+        personRepository.deleteAll();
+    }
+}
+```
+
+repository中可以自定义sql查询语句，详情可参考
+
+https://docs.spring.io/spring-data/jpa/docs/2.4.3/reference/html/#jpa.query-methods
+
+
+
+#### 关联查询
 
 
 
