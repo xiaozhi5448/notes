@@ -689,6 +689,159 @@ public class ExceptionController {
 
 
 
+### 过滤器
+
+Filter 过滤器这个概念应该大家不会陌生，特别是对与从 Servlet 开始入门学 Java 后台的同学来说。那么这个东西我们能做什么呢？Filter 过滤器主要是用来过滤用户请求的，它允许我们对用户请求进行前置处理和后置处理，比如实现 URL 级别的权限控制、过滤非法请求等等。Filter 过滤器是面向切面编程——AOP 的具体实现（AOP切面编程只是一种编程思想而已）。
+
+另外，Filter 是依赖于 Servlet 容器，`Filter`接口就在 Servlet 包下面，属于 Servlet 规范的一部分。所以，很多时候我们也称其为“增强版 Servlet”。
+
+如果我们需要自定义 Filter 的话非常简单，只需要实现 `javax.Servlet.Filter` 接口，然后重写里面的 3 个方法即可
+
+其对请求的处理流程如下
+
+![image-20210118213556164](springboot.assets/image-20210118213556164.png)
+
+#### 自定义filter
+
+##### 自己注册配置
+
+编写filter组件
+
+```java
+package com.example.demo.filter;
+
+import java.io.IOException;
+
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+@Component
+public class HelloFilter implements Filter {
+    Logger logger = LoggerFactory.getLogger(HelloFilter.class);
+
+    @Override
+    public void init(FilterConfig filterConfig) {
+        logger.info("初始化过滤器！");
+    }
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+        // TODO Auto-generated method stub
+        // 对请求进行预处理
+        logger.info("过滤器开始对请求进行预处理：");
+        HttpServletRequest servletRequest = (HttpServletRequest) request;
+        String requestUri = servletRequest.getRequestURI();
+        System.out.println("请求的接口为：" + requestUri);
+        long startTime = System.currentTimeMillis();
+        // 通过 doFilter 方法实现过滤功能
+        chain.doFilter(request, response);
+        // 上面的 doFilter 方法执行结束后用户的请求已经返回
+        long endTime = System.currentTimeMillis();
+        System.out.println("该用户的请求已经处理完毕，请求花费的时间为：" + (endTime - startTime));
+    }
+
+    @Override
+    public void destroy() {
+        logger.info("销毁过滤器");
+    }
+}
+
+```
+
+编写配置组件
+
+```sql
+package com.example.demo.config;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import com.example.demo.filter.HelloFilter;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class FilterConfig {
+    @Autowired
+    HelloFilter helloFilter;
+
+    @Bean
+    public FilterRegistrationBean<HelloFilter> thirdFilter() {
+        FilterRegistrationBean<HelloFilter> filterRegistrationBean = new FilterRegistrationBean<>();
+
+        filterRegistrationBean.setFilter(helloFilter);
+
+        filterRegistrationBean.setUrlPatterns(new ArrayList<>(Arrays.asList("/hello")));
+
+        return filterRegistrationBean;
+    }
+}
+```
+
+![image-20210118213818259](springboot.assets/image-20210118213818259.png)
+
+##### 使用预定义注解
+
+在自己的过滤器的类上加上`@WebFilter` 然后在这个注解中通过它提供好的一些参数进行配置。
+
+```sql
+@WebFilter(filterName = "helloFilter", urlPatterns = "/hello")
+```
+
+另外，为了能让 Spring 找到它，你需要在启动类上加上 `@ServletComponentScan` 注解。
+
+##### 多个拦截器的执行顺序
+
+通过`FilterRegistrationBean` 的`setOrder` 方法可以决定 Filter 的执行顺序
+
+```java
+@Configuration
+public class FilterConfig {
+    @Autowired
+    HelloFilter helloFilter;
+
+    @Autowired
+    HelloFilter2 helloFilter2;
+
+    @Bean
+    public FilterRegistrationBean<HelloFilter> thirdFilter() {
+        FilterRegistrationBean<HelloFilter> filterRegistrationBean = new FilterRegistrationBean<>();
+        filterRegistrationBean.setOrder(1);
+        filterRegistrationBean.setFilter(helloFilter);
+
+        filterRegistrationBean.setUrlPatterns(new ArrayList<>(Arrays.asList("/hello")));
+
+        return filterRegistrationBean;
+    }
+
+    @Bean
+    public FilterRegistrationBean<HelloFilter2> secondFilter() {
+        FilterRegistrationBean<HelloFilter2> filterRegistrationBean = new FilterRegistrationBean<>();
+        filterRegistrationBean.setOrder(2);
+        filterRegistrationBean.setFilter(helloFilter2);
+
+        filterRegistrationBean.setUrlPatterns(new ArrayList<>(Arrays.asList("/hello")));
+
+        return filterRegistrationBean;
+    }
+}
+```
+
+
+
 ## servlet 容器
 
 springboot默认使用嵌入式servlet容器，根据官网描述，最新版springboot支持的servlet容器
