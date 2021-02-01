@@ -840,7 +840,383 @@ public class FilterConfig {
 }
 ```
 
+### 拦截器
 
+**拦截器(Interceptor)同** Filter 过滤器一样，它俩都是面向切面编程——AOP 的具体实现（AOP切面编程只是一种编程思想而已）。
+
+你可以使用 Interceptor 来执行某些任务，例如在 **Controller** 处理请求之前编写日志，添加或更新配置......
+
+在 **Spring中**，当请求发送到 **Controller** 时，在被**Controller**处理之前，它必须经过 **Interceptors**（0或更多）。
+
+**Spring Interceptor**是一个非常类似于**Servlet Filter** 的概念 。
+
+#### 自定义Interceptor
+
+如果你需要自定义 **Interceptor** 的话必须实现 **org.springframework.web.servlet.HandlerInterceptor**接口或继承 **org.springframework.web.servlet.handler.HandlerInterceptorAdapter**类，并且需要重写下面下面3个方法
+
+```java
+public boolean preHandle(HttpServletRequest request,
+                         HttpServletResponse response,
+                         Object handler)
+ 
+ 
+public void postHandle(HttpServletRequest request,
+                       HttpServletResponse response,
+                       Object handler,
+                       ModelAndView modelAndView)
+ 
+ 
+public void afterCompletion(HttpServletRequest request,
+                            HttpServletResponse response,
+                            Object handler,
+                            Exception ex)
+```
+
+拦截器处理流程
+
+![image-20210120153139790](springboot.assets/image-20210120153139790.png)
+
+我们定义logInterceptor模拟日志记录
+
+```java
+package com.example.demo.interceptor;
+
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+public class LogInterceptor extends HandlerInterceptorAdapter {
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        long startTime = System.currentTimeMillis();
+        System.out.println("\n-------- LogInterception.preHandle --- ");
+        System.out.println("Request URL: " + request.getRequestURL());
+        System.out.println("Start Time: " + System.currentTimeMillis());
+        request.setAttribute("startTime", startTime);
+        return true;
+    }
+
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+        System.out.println("\n-------- LogInterception.postHandle --- ");
+        System.out.println("Request URL: " + request.getRequestURL());
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+        System.out.println("\n-------- LogInterception.afterCompletion --- ");
+        long startTime = (Long) request.getAttribute("startTime");
+        long endTime = System.currentTimeMillis();
+        System.out.println("Request URL: " + request.getRequestURL());
+        System.out.println("End Time: " + endTime);
+        System.out.println("Time Taken: " + (endTime - startTime));
+    }
+}
+
+```
+
+adminInteceptor
+
+记录特定url的请求
+
+```java
+package com.example.demo.interceptor;
+
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+public class AdminInterceptor extends HandlerInterceptorAdapter {
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        System.out.println("\n-------- AdminInterceptor.preHandle --- ");
+        return true;
+    }
+
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+        System.out.println("\n-------- AdminInterceptor.postHandle --- ");
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+        System.out.println("\n-------- AdminInterceptor.afterCompletion --- ");
+    }
+}
+
+```
+
+AdminLoginInteceptor模拟重定向
+
+```java
+package com.example.demo.interceptor;
+
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+public class OldLoginInterceptor extends HandlerInterceptorAdapter {
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        System.out.println("\n-------- OldLoginInterceptor.preHandle --- ");
+        System.out.println("Request URL: " + request.getRequestURL());
+        System.out.println("Sorry! This URL is no longer used, Redirect to /admin/login");
+        response.sendRedirect(request.getContextPath() + "/admin/hello");
+        return false;
+    }
+
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+        System.out.println("\n-------- OldLoginInterceptor.postHandle --- ");
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+        System.out.println("\n-------- QueryStringInterceptor.afterCompletion --- ");
+    }
+}
+
+```
+
+使用注解方式进行配置
+
+```java
+package com.example.demo.config;
+
+import com.example.demo.interceptor.AdminInterceptor;
+import com.example.demo.interceptor.LogInterceptor;
+import com.example.demo.interceptor.OldLoginInterceptor;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class InterceptorConfig implements WebMvcConfigurer {
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new LogInterceptor());
+        registry.addInterceptor(new OldLoginInterceptor()).addPathPatterns("/admin/oldlogin");
+        registry.addInterceptor(new AdminInterceptor()).addPathPatterns("/admin/*").excludePathPatterns("/admin/oldlogin");
+    }
+}
+
+```
+
+编写映射到/admin/login与/admin/oldlogin的controller进行测试
+
+### 参数校验
+
+#### 校验bean与方法参数
+
+参数校验使用jsr303标准，springboot中实现该标准的校验器为hibernate-validator，使用前引入依赖
+
+```xml
+		<dependency>
+			<groupId>javax.validation</groupId>
+			<artifactId>validation-api</artifactId>
+			<version>2.0.1.Final</version>
+		</dependency>
+		<dependency>
+			<groupId>org.hibernate</groupId>
+			<artifactId>hibernate-validator</artifactId>
+			<version>6.0.16.Final</version>
+		</dependency>
+```
+
+bean属性校验，使用注解，规定bean属性值
+
+```java
+package com.example.demo.bean;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import javax.validation.constraints.Email;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Student {
+    @NotNull(message = "class 不能为空")
+    String classId;
+    @Size(max = 33)
+    @NotNull(message = "name 不能为空")
+    String name;
+
+    @Pattern(regexp = "((^Man$| ^Woman$|^UGM$))", message = "sex 不在可选范围内")
+    @NotNull(message = "sex 不能为空")
+    String sex;
+
+    @Email(message = "email 格式不正确")
+    @NotNull(message = "email 不能为空")
+    String email;
+}
+```
+
+在controller中，测试该校验结果
+
+```java
+package com.example.demo.controller;
+
+import com.example.demo.bean.Student;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import javax.validation.Valid;
+import javax.validation.constraints.Size;
+
+@RestController
+@Validated // 添加该注解使spring校验方法参数
+public class ValidatorController {
+    @PostMapping("/test/student")
+    // @valid注解表示校验之后的参数
+    public ResponseEntity<Student> getPerson(@Valid @RequestBody Student student){
+        return ResponseEntity.ok().body(student);
+    }
+
+    @GetMapping("/test/name")
+    public String getValidate(@Size(min = 3, max = 10,message = "name在3到10之间") @RequestParam("name") String name){
+        return "validated!";
+    }
+}
+```
+
+当校验bean属性失败时，产生MethodArgumentNotValidException异常，我们处理全局异常时，编写该异常处理代码如下
+
+```java
+@ExceptionHandler(value = {MethodArgumentNotValidException.class})
+public ResponseEntity<Map<String, String>> handlerValidationException(MethodArgumentNotValidException ex){
+    Map<String, String> map = new HashMap<>();
+    ex.getBindingResult().getAllErrors().forEach((error)->{
+        String name = ((FieldError)error).getField();
+        String msg = error.getDefaultMessage();
+        map.put(name, msg);
+    });
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(map);
+}
+```
+
+![image-20210120204219833](springboot.assets/image-20210120204219833.png)
+
+当校验方法参数失效，产生ConstraintViolationException异常
+
+```java
+    @ExceptionHandler(value = {ConstraintViolationException.class})
+    public ResponseEntity<String> handlerConstraintException(ConstraintViolationException ex){
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+    }
+```
+
+![image-20210120204243043](springboot.assets/image-20210120204243043.png)
+
+
+
+**JSR提供的校验注解**:
+
+- `@Null` 被注释的元素必须为 null
+- `@NotNull` 被注释的元素必须不为 null
+- `@AssertTrue` 被注释的元素必须为 true
+- `@AssertFalse` 被注释的元素必须为 false
+- `@Min(value) `被注释的元素必须是一个数字，其值必须大于等于指定的最小值
+- `@Max(value) `被注释的元素必须是一个数字，其值必须小于等于指定的最大值
+- `@DecimalMin(value) `被注释的元素必须是一个数字，其值必须大于等于指定的最小值
+- `@DecimalMax(value)` 被注释的元素必须是一个数字，其值必须小于等于指定的最大值
+- `@Size(max=, min=) `被注释的元素的大小必须在指定的范围内
+- `@Digits (integer, fraction) `被注释的元素必须是一个数字，其值必须在可接受的范围内
+- `@Past `被注释的元素必须是一个过去的日期
+- `@Future` 被注释的元素必须是一个将来的日期
+- `@Pattern(regex=,flag=) `被注释的元素必须符合指定的正则表达式
+
+**Hibernate Validator提供的校验注解**：
+
+- `@NotBlank(message =) `验证字符串非null，且长度必须大于0
+- `@Email` 被注释的元素必须是电子邮箱地址
+- `@Length(min=,max=) `被注释的字符串的大小必须在指定的范围内
+- `@NotEmpty `被注释的字符串的必须非空
+- `@Range(min=,max=,message=)` 被注释的元素必须在合适的范围内
+
+#### 手动校验
+
+```java
+@Test
+void testVAlidator(){
+    ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+    Validator validator = factory.getValidator();
+    Student student = new Student();
+    student.setSex("MAN*");
+    student.setClassId("888");
+    student.setEmail("test");
+    Set<ConstraintViolation<Student>> violations = validator.validate(student);
+    //output:
+    //email 格式不正确
+    //name 不能为空
+    //sex 值不在可选范围
+    for (ConstraintViolation<Student> constraintViolation : violations) {
+        System.out.println(constraintViolation.getMessage());
+    }
+}
+```
+
+validator也可以使用Autowired注入
+
+#### 自定义validator
+
+预设的validator无法满足我们的要求，可以自定义验证器
+
+实现ConstraintValidator接口，实现isvalid方法
+
+```java
+import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorContext;
+import java.util.HashSet;
+
+public class RegionValidator implements ConstraintValidator<Region, String> {
+
+    @Override
+    public boolean isValid(String value, ConstraintValidatorContext context) {
+        HashSet<Object> regions = new HashSet<>();
+        regions.add("China");
+        regions.add("China-Taiwan");
+        regions.add("China-HongKong");
+        return regions.contains(value);
+    }
+}
+```
+
+使用该注解时，被该注解表名的参数验证时会被传入isvalid的第一个参数，在isvalid方法中编写验证逻辑，返回布尔值即可
+
+随后我们编写注解，指定上面编写的类为验证器
+
+```java
+@Target({FIELD})
+@Retention(RUNTIME)
+@Constraint(validatedBy = RegionValidator.class)
+@Documented
+public @interface Region {
+
+    String message() default "Region 值不在可选范围内";
+
+    Class<?>[] groups() default {};
+
+    Class<? extends Payload>[] payload() default {};
+}
+```
+
+随后我们可以使用该注解
+
+@Region
+
+String region；
 
 ## servlet 容器
 
@@ -854,7 +1230,7 @@ springboot默认使用嵌入式servlet容器，根据官网描述，最新版spr
 
 
 
-
+一般在web服务中，数据访问层我们会抽象出来，在我们的controller中，只使用我们定义的service，而不直接使用mybatis的mapper或jpa的reposotory。
 
 ### jdbc
 
@@ -862,7 +1238,155 @@ springboot默认使用嵌入式servlet容器，根据官网描述，最新版spr
 
 ### mybatis
 
+springboot 配置mybatis，使用配置文件的方式对mybatis进行配置，我们在数据库中创建好数据表，通过mybatis-generator生成对应的实体类，对应的mappers，对应的xml配置文件。
 
+#### 导入依赖
+
+```xml
+<dependency>
+    <groupId>org.mybatis.spring.boot</groupId>
+    <artifactId>mybatis-spring-boot-starter</artifactId>
+    <version>1.3.1</version>
+</dependency>
+<dependency>
+    <groupId>mysql</groupId>
+    <artifactId>mysql-connector-java</artifactId>
+    <version>8.0.22</version>
+</dependency>
+<dependency>
+    <groupId>org.mybatis.generator</groupId>
+    <artifactId>mybatis-generator</artifactId>
+    <version>1.4.0</version>
+    <type>pom</type>
+</dependency>
+<!-- https://mvnrepository.com/artifact/org.mybatis.generator/mybatis-generator-maven-plugin -->
+<dependency>
+    <groupId>org.mybatis.generator</groupId>
+    <artifactId>mybatis-generator-maven-plugin</artifactId>
+    <version>1.4.0</version>
+</dependency>
+```
+
+随后我们编写数据库连接配置
+
+```properties
+db.url=jdbc:mysql://127.0.0.1:3306/person
+db.username=root
+db.password=wodemima
+```
+
+编写mybatis-generator的配置文件config/mybatis-generator.xml,该配置文件配置项参考
+
+http://mybatis.org/generator/configreference/xmlconfig.html
+
+```xml
+<!DOCTYPE generatorConfiguration PUBLIC
+        "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+<generatorConfiguration>
+    <properties resource="config/database.properties"></properties>
+    <context id="simple" targetRuntime="MyBatis3">
+        <jdbcConnection driverClass="com.mysql.cj.jdbc.Driver"
+                        connectionURL="${db.url}"
+                        userId="${db.username}"
+                        password="${db.password}"/>
+		<!-- 实体类生成位置-->
+        <javaModelGenerator targetPackage="com.example.base.dao.model" targetProject="src/main/java"/>
+		<!--mapper的xml配置文件生成位置-->
+        <sqlMapGenerator targetPackage="mapper" targetProject="src/main/resources"/>
+		<!--mapper接口的位置-->
+        <javaClientGenerator type="XMLMAPPER" targetPackage="com.example.base.dao.client" targetProject="src/main/java"/>
+		<!-- 需要映射的数据表-->
+        <table tableName="person" />
+        <table tableName="company"/>
+        <table tableName="school"/>
+    </context>
+</generatorConfiguration>
+```
+
+在idea的maven界面plugin中可以找到mybatis-generator，双击运行即可生成对应文件
+
+![image-20210130210241648](/media/xiaozhi/PSSD/code/notes/java/springboot.assets/image-20210130210241648.png)
+
+**在生成的mapper接口类的上方我们添加@Mapper注解**
+
+随后编写mybatis主配置文件mybatis-config.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<configuration>
+    <properties resource="config/database.properties"></properties>
+    <settings>
+        <!-- changes from the defaults for testing -->
+        <setting name="cacheEnabled" value="false" />
+        <setting name="useGeneratedKeys" value="true" />
+        <setting name="defaultExecutorType" value="REUSE" />
+    </settings>
+    <typeAliases>
+    </typeAliases>
+    <environments default="development">
+        <environment id="development">
+            <transactionManager type="jdbc"/>
+            <dataSource type="POOLED">
+                <property name="driver" value="com.mysql.cj.jdbc.Driver"/>
+                <property name="url" value="${db.url}"/>
+                <property name="username" value="${db.username}"/>
+                <property name="password" value="${db.password}"/>
+            </dataSource>
+        </environment>
+    </environments>
+    <mappers>
+<!--        <mapper resource="mapper/CompanyMapper.xml" />-->
+<!--        <mapper resource="mapper/PersonMapper.xml" />-->
+<!--        <mapper resource="mapper/SchoolMapper.xml" />-->
+        <package name="mapper"/>
+    </mappers>
+</configuration>
+```
+
+在项目配置文件application.yml中制定mybatis主配置位置
+
+```yml
+mybatis:
+  config-location: classpath:mybatis-config.xml
+  mapper-locations: classpath:mapper/*.xml
+```
+
+随后就可以像使用jpa一样使用mybatis为我们生成的mapper
+
+注入mapper并进行测试
+
+```java
+@SpringBootTest
+class BaseApplicationTests {
+    @Autowired
+    PersonMapper personMapper;
+    @Autowired
+    SchoolMapper schoolMapper;
+    @Autowired
+    CompanyMapper companyMapper;
+    @Test
+    void testMybatis(){
+        SchoolExample schoolExample = new SchoolExample();
+        schoolExample.or().andIdEqualTo(1L);
+        School school = schoolMapper.selectByPrimaryKey(1L);
+        System.out.println(school.toString());
+        List<School> schools = schoolMapper.selectByExample(schoolExample);
+        System.out.println(schools.toString());
+        PersonExample personExample = new PersonExample();
+        personExample.or().andSchoolIdEqualTo(1L);
+        List<Person> persons = personMapper.selectByExample(personExample);
+        System.out.println(persons.toString());
+    }
+
+}
+```
+
+![image-20210130210742936](/media/xiaozhi/PSSD/code/notes/java/springboot.assets/image-20210130210742936.png)
 
 ### springData JPA
 
@@ -1040,33 +1564,357 @@ https://docs.spring.io/spring-data/jpa/docs/2.4.3/reference/html/#jpa.query-meth
 
 #### 关联查询
 
+### 缓存
+
+#### redis
+
+
+
+## 定时任务
+
+
+
+## 异步任务
+
 
 
 ## restful
 
 
 
-## 原理解析
+## swagger2接口文档
 
+Swagger是一款可以快速生成符合RESTful风格API并进行在线调试的插件。本文将介绍如何在Spring Boot中整合Swagger。
 
+在此之前，我们先聊聊什么是**REST**。REST实际上为**Re**presentational **S**tate **T**ransfer的缩写，翻译为“表现层状态转化” 。如果一个架构符合REST 原则，就称它为**RESTful**架构。
 
+导入swagger依赖
 
+```xml
+<dependency>
+    <groupId>io.springfox</groupId>
+    <artifactId>springfox-swagger2</artifactId>
+    <version>2.6.1</version>
+</dependency>
+<dependency>
+    <groupId>io.springfox</groupId>
+    <artifactId>springfox-swagger-ui</artifactId>
+    <version>2.6.1</version>
+</dependency>
+```
 
-## 缓存
+使用配置类的方式进行配置
 
+```java
+package com.example.base.config;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import springfox.documentation.builders.ApiInfoBuilder;
+import springfox.documentation.builders.PathSelectors;
+import springfox.documentation.builders.RequestHandlerSelectors;
+import springfox.documentation.service.ApiInfo;
+import springfox.documentation.service.Contact;
+import springfox.documentation.spi.DocumentationType;
+import springfox.documentation.spring.web.plugins.Docket;
+import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
+@Configuration
+@EnableSwagger2
+public class SwaggerConfig {
+    @Bean
+    public Docket buildDocket() {
+        return new Docket(DocumentationType.SWAGGER_2)
+                .apiInfo(buildApiInf())
+                .select()
+                .apis(RequestHandlerSelectors.basePackage("com.example.base.controller"))
+                .paths(PathSelectors.any())
+                .build();
+    }
 
+    private ApiInfo buildApiInf() {
+        return new ApiInfoBuilder()
+                .title("系统RESTful API文档")
+                .contact(new Contact("mrbird", "https://mrbird.cc", "852252810@qq.com"))
+                .version("1.0")
+                .build();
+    }
+}
+
+```
+
+常用注解https://github.com/swagger-api/swagger-core/wiki/Annotations
+
+- `@Api`：修饰整个类，描述Controller的作用；
+- `@ApiOperation`：描述一个类的一个方法，或者说一个接口；
+- `@ApiParam`：单个参数描述；
+- `@ApiModel`：用对象来接收参数；
+- `@ApiProperty`：用对象接收参数时，描述对象的一个字段；
+- `@ApiResponse`：HTTP响应其中1个描述；
+- `@ApiResponses`：HTTP响应整体描述；
+- `@ApiIgnore`：使用该注解忽略这个API；
+- `@ApiError` ：发生错误返回的信息；
+- `@ApiImplicitParam`：一个请求参数；
+- `@ApiImplicitParams`：多个请求参数。
+
+如下所示的api
+
+```java
+@ApiOperation(value = "get company information", notes = "get company information from id")
+@ApiImplicitParam(name="id", value="company id", required = true, dataType = "Integer", paramType = "path")
+@RequestMapping("/company/{id}")
+public Company getCompany(@PathVariable("id") Integer id){
+    Company res = companyService.queryById(id);
+    return res;
+}
+```
+
+产生下面的接口说明
+
+![image-20210201152735083](/media/xiaozhi/PSSD/code/notes/java/springboot.assets/image-20210201152735083.png)
 
 ## 消息
 
 
 
-## 检索-elasticsearch
+## 检索
 
 
 
-## 定时任务
+## 测试
+
+### 了解junit4重要注解的作用
+
+- @Before
+- @After
+- @BeforeClass
+- @AfterClass
+
+### 了解常用断言含义
+
+- `assertEquals("message",A,B)`，判断A对象和B对象是否相等，这个判断在比较两个对象时调用了`equals()`方法。
+- `assertSame("message",A,B)`，判断A对象与B对象是否相同，使用的是`==`操作符。
+- `assertTrue("message",A)`，判断A条件是否为真。
+- `assertFalse("message",A)`，判断A条件是否不为真。
+- `assertNotNull("message",A)`，判断A对象是否不为`null`。
+- `assertArrayEquals("message",A,B)`，判断A数组与B数组是否相等。
+
+### 了解springboot测试方法
+
+#### 测试类注解
+
+@RunWith（SpringRunner.class）
+
+@SpringbootTest
+
+#### 使用MockMvc测试web接口
+
+初始化mockmvc的方法
+
+```java
+MockMvc mockMvc;
+@Autowired
+WebApplicationContext wac;
+@Before
+public void before() {
+    mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+}
+```
+
+使用MockMvc测试web请求
+
+```java
+@Test
+public void getCompany() throws Exception {
+    mockMvc.perform(MockMvcRequestBuilders.get("/company/{id}", 1))
+        .andExpect(MockMvcResultMatchers.status().isOk());
+}
+```
+
+#### 请求构造
+
+模拟一个get请求：
+
+```
+mockMvc.perform(MockMvcRequestBuilders.get("/hello?name={name}","mrbird"));
+```
+
+模拟一个post请求：
+
+```
+mockMvc.perform(MockMvcRequestBuilders.post("/user/{id}", 1));
+```
+
+模拟文件上传：
+
+```java
+mockMvc.perform(MockMvcRequestBuilders.fileUpload("/fileupload").file("file", "文件内容".getBytes("utf-8")));
+```
+
+模拟请求参数：
+
+```java
+// 模拟发送一个message参数，值为hello
+mockMvc.perform(MockMvcRequestBuilders.get("/hello").param("message", "hello"));
+// 模拟提交一个checkbox值，name为hobby，值为sleep和eat
+mockMvc.perform(MockMvcRequestBuilders.get("/saveHobby").param("hobby", "sleep", "eat"));
+```
+
+也可以直接使用`MultiValueMap`构建参数：
+
+```java
+MultiValueMap<String, String> params = new LinkedMultiValueMap<String, String>();
+params.add("name", "mrbird");
+params.add("hobby", "sleep");
+params.add("hobby", "eat");
+mockMvc.perform(MockMvcRequestBuilders.get("/hobby/save").params(params));
+```
+
+模拟发送JSON参数：
+
+```java
+String jsonStr = "{\"username\":\"Dopa\",\"passwd\":\"ac3af72d9f95161a502fd326865c2f15\",\"status\":\"1\"}";
+mockMvc.perform(MockMvcRequestBuilders.post("/user/save").content(jsonStr.getBytes()));
+```
+
+实际测试中，要手动编写这么长的JSON格式字符串很繁琐也很容易出错，可以借助Spring Boot自带的Jackson技术来序列化一个Java对象（可参考[Spring Boot中的JSON技术](https://mrbird.cc/Spring-Boot中的JSON技术.html)），如下所示：
+
+```java
+User user = new User();
+user.setUsername("Dopa");
+user.setPasswd("ac3af72d9f95161a502fd326865c2f15");
+user.setStatus("1");
+
+String userJson = mapper.writeValueAsString(user);
+mockMvc.perform(MockMvcRequestBuilders.post("/user/save").content(userJson.getBytes()));
+```
+
+其中，mapper为`com.fasterxml.jackson.databind.ObjectMapper`对象。
+
+模拟Session和Cookie：
+
+```java
+mockMvc.perform(MockMvcRequestBuilders.get("/index").sessionAttr(name, value));
+mockMvc.perform(MockMvcRequestBuilders.get("/index").cookie(new Cookie(name, value)));
+```
+
+设置请求的Content-Type：
+
+```java
+mockMvc.perform(MockMvcRequestBuilders.get("/index").contentType(MediaType.APPLICATION_JSON_UTF8));
+```
+
+设置返回格式为JSON：
+
+```
+mockMvc.perform(MockMvcRequestBuilders.get("/user/{id}", 1).accept(MediaType.APPLICATION_JSON));
+```
+
+模拟HTTP请求头：
+
+```
+mockMvc.perform(MockMvcRequestBuilders.get("/user/{id}", 1).header(name, values));
+```
+
+#### 处理返回结果
+
+期望成功调用，即HTTP Status为200：
+
+```
+mockMvc.perform(MockMvcRequestBuilders.get("/user/{id}", 1))
+    .andExpect(MockMvcResultMatchers.status().isOk());
+```
+
+期望返回内容是`application/json`：
+
+```
+mockMvc.perform(MockMvcRequestBuilders.get("/user/{id}", 1))
+    .andExpect(MockMvcResultMatchers.content().contentType(MediaType.APPLICATION_JSON));
+```
+
+检查返回JSON数据中某个值的内容：
+
+```
+mockMvc.perform(MockMvcRequestBuilders.get("/user/{id}", 1))
+    .andExpect(MockMvcResultMatchers.jsonPath("$.username").value("mrbird"));
+```
+
+这里使用到了`jsonPath`，`$`代表了JSON的根节点。更多关于`jsonPath`的介绍可参考 https://github.com/json-path/JsonPath。
+
+判断Controller方法是否返回某视图：
+
+```
+mockMvc.perform(MockMvcRequestBuilders.post("/index"))
+    .andExpect(MockMvcResultMatchers.view().name("index.html"));
+```
+
+比较Model：
+
+```
+mockMvc.perform(MockMvcRequestBuilders.get("/user/{id}", 1))
+    .andExpect(MockMvcResultMatchers.model().size(1))
+    .andExpect(MockMvcResultMatchers.model().attributeExists("password"))
+    .andExpect(MockMvcResultMatchers.model().attribute("username", "mrbird"));
+```
+
+比较forward或者redirect：
+
+```
+mockMvc.perform(MockMvcRequestBuilders.get("/index"))
+    .andExpect(MockMvcResultMatchers.forwardedUrl("index.html"));
+// 或者
+mockMvc.perform(MockMvcRequestBuilders.get("/index"))
+    .andExpect(MockMvcResultMatchers.redirectedUrl("index.html"));
+```
+
+比较返回内容，使用`content()`：
+
+```
+// 返回内容为hello
+mockMvc.perform(MockMvcRequestBuilders.get("/index"))
+    .andExpect(MockMvcResultMatchers.content().string("hello"));
+
+// 返回内容是XML，并且与xmlCotent一样
+mockMvc.perform(MockMvcRequestBuilders.get("/index"))
+    .andExpect(MockMvcResultMatchers.content().xml(xmlContent));
+
+// 返回内容是JSON ，并且与jsonContent一样
+mockMvc.perform(MockMvcRequestBuilders.get("/index"))
+    .andExpect(MockMvcResultMatchers.content().json(jsonContent));
+```
+
+输出响应结果：
+
+```
+mockMvc.perform(MockMvcRequestBuilders.get("/index"))
+    .andDo(MockMvcResultHandlers.print());
+```
+
+**在测试中，有时候我们会往数据库中插入数据造成侵入，在方法前加上@Transactional可以避免真实插入**
+
+#### 使用session
+
+```java
+private MockMvc mockMvc;
+private MockHttpSession session;
+
+@Autowired
+private WebApplicationContext wac;
+
+@Before
+public void setupMockMvc(){
+    mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+    session = new MockHttpSession();
+    User user =new User();
+    user.setUsername("Dopa");
+    user.setPasswd("ac3af72d9f95161a502fd326865c2f15");
+    session.setAttribute("user", user); 
+}
+```
+
+## 监控-actuator
+
+## 邮件
 
 
 
