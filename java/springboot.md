@@ -11,8 +11,6 @@
 - java extension pack
 - spring boot extension pack
 
-![image-20210108155227817](springboot.assets/image-20210108155227817.png)
-
 可以像idea一样运行调试程序
 
 ## 初识springboot
@@ -28,8 +26,6 @@ spingboot可以让我们
 ### helloworld
 
 idea中使用new project 选择spring initiliazer，创建springboot项目，选择依赖，会从spring 官网下载项目模板，一个springboot脚手架，启用maven autoimport功能后，系统会自动导入maven依赖，位置取决于主机环境maven仓库的位置
-
-![1587694259922](assets/1587694259922.png)
 
 启动类代码如下
 
@@ -204,8 +200,6 @@ public class DemoApplication {
 会将所有主包下的组件扫描进spring 容器
 
 在register一行打上断点，调试
-
-![image-20210108163417439](springboot.assets/image-20210108163417439.png)
 
 ###### AutoConfigurationImportSelector
 
