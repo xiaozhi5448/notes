@@ -203,7 +203,20 @@ public class DemoApplication {
 
 ###### AutoConfigurationImportSelector
 
-控制导入哪些组件，将需要导入的组件以全类名的方式返回
+该类实现了DeferedImportSelector接口，实现了ImportSelector接口，也就实现了selectImports方法，该方法决定导入那些自动配置类
+
+```java
+@Override
+public String[] selectImports(AnnotationMetadata annotationMetadata) {
+    if (!isEnabled(annotationMetadata)) {
+        return NO_IMPORTS;
+    }
+    AutoConfigurationEntry autoConfigurationEntry = getAutoConfigurationEntry(annotationMetadata);
+    return StringUtils.toStringArray(autoConfigurationEntry.getConfigurations());
+}
+```
+
+其中getAutoConfigurationEntry完成了获取自动配置类信息的任务，将需要导入的组件以全类名的方式返回
 
 ```java
 	protected AutoConfigurationEntry getAutoConfigurationEntry(AnnotationMetadata annotationMetadata) {
@@ -222,11 +235,38 @@ public class DemoApplication {
 	}
 ```
 
-![image-20210108164243220](springboot.assets/image-20210108164243220.png)
+容易看出查找配置类的方法为getCandidateConfigurations
 
-获取了相关的自动配置类
+```java
+protected List<String> getCandidateConfigurations(AnnotationMetadata metadata, AnnotationAttributes attributes) {
+    List<String> configurations = SpringFactoriesLoader.loadFactoryNames(getSpringFactoriesLoaderFactoryClass(),
+                                                                         getBeanClassLoader());
+    Assert.notEmpty(configurations, "No auto configuration classes found in META-INF/spring.factories. If you "
+                    + "are using a custom packaging, make sure that file is correct.");
+    return configurations;
+}
+```
 
-待续···
+SpringFactoriesLoader.loadFactoryNames
+
+```java
+public static List<String> loadFactoryNames(Class<?> factoryType, @Nullable ClassLoader classLoader) {
+    ClassLoader classLoaderToUse = classLoader;
+    if (classLoaderToUse == null) {
+        classLoaderToUse = SpringFactoriesLoader.class.getClassLoader();
+    }
+    String factoryTypeName = factoryType.getName();
+    return loadSpringFactories(classLoaderToUse).getOrDefault(factoryTypeName, Collections.emptyList());
+}
+```
+
+loadSpringFactories
+
+![image-20210307220747563](springboot.assets/image-20210307220747563.png)
+
+![image-20210307220804161](springboot.assets/image-20210307220804161.png)
+
+
 
 ## springboot配置文件
 
