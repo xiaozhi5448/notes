@@ -456,18 +456,18 @@ SpringBoot也可以从以下位置加载配置； 优先级从高到低；高优
 java -jar spring-boot-02-config-02-0.0.1-SNAPSHOT.jar --server.port=8087 --server.context-path=/abc
 多个配置用空格分开； --配置项=值
 2. 来自java:comp/env的JNDI属性
-3.Java系统属性（System.getProperties()）
-4.操作系统环境变量
-5.RandomValuePropertySource配置的random.*属性值
-由jar包外向jar包内进行寻找；
-优先加载带profile
-6.jar包外部的application-{profile}.properties或application.yml(带spring.profile)配置文件
-7.jar包内部的application-{profile}.properties或application.yml(带spring.profile)配置文件
-再来加载不带profile
-8.jar包外部的application.properties或application.yml(不带spring.profile)配置文件
-9.jar包内部的application.properties或application.yml(不带spring.profile)配置文件
-10.@Configuration注解类上的@PropertySource
-11.通过SpringApplication.setDefaultProperties指定的默认属性
+3. Java系统属性（System.getProperties()）
+4. 操作系统环境变量
+5. RandomValuePropertySource配置的random.*属性值
+  由jar包外向jar包内进行寻找；
+  优先加载带profile
+  6.jar包外部的application-{profile}.properties或application.yml(带spring.profile)配置文件
+  7.jar包内部的application-{profile}.properties或application.yml(带spring.profile)配置文件
+  再来加载不带profile
+  8.jar包外部的application.properties或application.yml(不带spring.profile)配置文件
+  9.jar包内部的application.properties或application.yml(不带spring.profile)配置文件
+  10.@Configuration注解类上的@PropertySource
+  11.通过SpringApplication.setDefaultProperties指定的默认属性
 
 ## springboot日志框架
 
@@ -1340,7 +1340,7 @@ http://mybatis.org/generator/configreference/xmlconfig.html
 
 在idea的maven界面plugin中可以找到mybatis-generator，双击运行即可生成对应文件
 
-![image-20210130210241648](/media/xiaozhi/PSSD/code/notes/java/springboot.assets/image-20210130210241648.png)
+![image-20210130210241648](springboot.assets/image-20210130210241648.png)
 
 **在生成的mapper接口类的上方我们添加@Mapper注解**
 
@@ -1420,7 +1420,7 @@ class BaseApplicationTests {
 }
 ```
 
-![image-20210130210742936](/media/xiaozhi/PSSD/code/notes/java/springboot.assets/image-20210130210742936.png)
+![image-20210130210742936](springboot.assets/image-20210130210742936.png)
 
 ### springData JPA
 
@@ -1602,6 +1602,10 @@ https://docs.spring.io/spring-data/jpa/docs/2.4.3/reference/html/#jpa.query-meth
 
 #### redis
 
+##### redisTemplate
+
+##### Jedis
+
 
 
 ## 定时任务
@@ -1705,7 +1709,7 @@ public Company getCompany(@PathVariable("id") Integer id){
 
 产生下面的接口说明
 
-![image-20210201152735083](/media/xiaozhi/PSSD/code/notes/java/springboot.assets/image-20210201152735083.png)
+![image-20210201152735083](springboot.assets/image-20210201152735083.png)
 
 ## 消息
 
