@@ -1819,6 +1819,40 @@ LOG_ERROR( "cannot parse http header information!");
 
 ## 解析命令行参数
 
+解析命令行参数，使用getopt与getopt_long
+
+在解析参数的过程中，getopt会返回合法选项，每次调用getopt后，如果有参数的话，optarg指向参数，optind是argv中下一个参数的下标，
+
+当解析到未知参数，会将该选项放入optopt，getopt返回？，opterr表示错误代码，getopt将错误信息输出到错误输出
+
+```c
+#include<stdio.h>
+#include<unistd.h>
+extern char *optarg;
+extern int opterr, optind, optopt;
+int main(int argc, char *argv[]){
+    int opt;
+    while((opt = getopt(argc, argv, "if:rs")) != -1){
+        switch(opt){
+            case 'i': 
+            case 'r': 
+            case 's': 
+                printf("option:%c\n", opt);
+                break;
+            case 'f': 
+                printf("filename:%s\n", optarg);
+            default: 
+                printf("unknown argument!\n");
+                break;
+        }
+    }
+    for(;optind < argc; optind++){
+        printf("argument:%s\n", argv[optind]);
+    }
+    return 0;
+}
+```
+
 
 
 ## cmake项目管理
@@ -1853,9 +1887,7 @@ launch json
 }
 ```
 
-在cmakelist文件中，添加程序链接时需要的第三方库，比如pthread
-
-使用
+在cmakelist文件中，添加程序链接时需要的第三方库，比如pthread使用
 
 ```cmake
 find_package(Threads)
@@ -1871,6 +1903,37 @@ target_link_libraries(mash pthread)
 ## gcc与gdb调试教程
 
 
+
+## 生产力工具
+
+引入对应库文件时，要将对应头文件与源文件包含进来，此时，可以使用pkg-config获得需要的cflags选项，如`pkg-config --cflags glib-2.0`
+![1551712437974](c%E8%AF%AD%E8%A8%80%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1.assets/1551712437974.png)
+
+
+
+编译pthread代码时，要添加-lpthread库支持编译选项
+
+编译glib相关代码时，需添加-lglib-2.0支持，并且使用pkg-config --cflags glib-2.0包含需要的头文件
+
+gdb调试程序时，指定程序运行参数有三种形式
+	形式一：gdb --args ./youexec -a paramA -b paramB
+	形式二:gdb youexec; execute the "set args -a paramA -b paramB" in gdb
+	形式三：gdb yourexec; execute the "run -a paramA -b paramB" in gdb
+
+在gdb中，使用info functions可以查看程序函数列表
+
+在gdb调试多进程代码时， 使用set follow-fork-mode child|parent设置跟踪调试子进程还是父进程代码
+
+ssh-keygen -f "/home/user/.ssh/known_hosts" -R ip_addr可以将 已经添加的公钥删除，用于远程服务器密钥发生改变的情形
+
+
+vmware 启动虚拟机时报错，“Could not open /dev/vmmon: No such file or directory. Please make sure that the kernel module `vmmon' is loaded",
+	模块未加载至内存，需要启动/etc/init.d/vmware start   systemctl start vmware
+
+
+
+
+vscode 与pyenv  在配置过pyenv的目录下使用vscode时，最好吧sys.path的内容添加到设置中的extrapath中，以完成代码提示功能
 
 ## 附录
 
@@ -2579,4 +2642,6 @@ void parse(char *cmd_line, char *argv[], Cmd_aux *aux)
 }
 
 ```
+
+
 
