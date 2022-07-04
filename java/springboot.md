@@ -36,9 +36,7 @@ public class DemoApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(DemoApplication.class, args);
 	}
-
 }
-
 ```
 
 SpringBootApplication注解包含了许多其他内容
@@ -459,15 +457,15 @@ java -jar spring-boot-02-config-02-0.0.1-SNAPSHOT.jar --server.port=8087 --serve
 3. Java系统属性（System.getProperties()）
 4. 操作系统环境变量
 5. RandomValuePropertySource配置的random.*属性值
-  由jar包外向jar包内进行寻找；
-  优先加载带profile
-  6.jar包外部的application-{profile}.properties或application.yml(带spring.profile)配置文件
-  7.jar包内部的application-{profile}.properties或application.yml(带spring.profile)配置文件
-  再来加载不带profile
-  8.jar包外部的application.properties或application.yml(不带spring.profile)配置文件
-  9.jar包内部的application.properties或application.yml(不带spring.profile)配置文件
-  10.@Configuration注解类上的@PropertySource
-  11.通过SpringApplication.setDefaultProperties指定的默认属性
+    由jar包外向jar包内进行寻找；
+    优先加载带profile
+    6.jar包外部的application-{profile}.properties或application.yml(带spring.profile)配置文件
+    7.jar包内部的application-{profile}.properties或application.yml(带spring.profile)配置文件
+    再来加载不带profile
+    8.jar包外部的application.properties或application.yml(不带spring.profile)配置文件
+    9.jar包内部的application.properties或application.yml(不带spring.profile)配置文件
+    10.@Configuration注解类上的@PropertySource
+    11.通过SpringApplication.setDefaultProperties指定的默认属性
 
 ## springboot日志框架
 

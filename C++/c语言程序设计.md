@@ -1139,7 +1139,7 @@ int hostname_to_ip(char * hostname , char* ip)
 	for(i = 0; addr_list[i] != NULL; i++) 
 	{
 		//Return the first one;
-		strcpy(ip , inet_ntoa(*addr_list[i]) );
+		strcpy(ip , inet_ntoa(addr_list[i]) );
 		return 0;
 	}
 	return 1;
@@ -1241,7 +1241,7 @@ struct in_addr {
 
 linux 中关于socket的系统调用基本都是用sockaddr，但是该地址设置非常不方便，将ip地址与端口混淆，编写程序时，应该使用sockaddr_in
 
-![1583311788576](/home/xiaozhi/Documents/notes/C++/assets/1583311788576.png)
+![1583311788576](assets/1583311788576.png)
 
 典型的初始化socket地址的方式为
 
